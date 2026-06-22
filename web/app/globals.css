@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+/* ===========================================================================
+   Sonar — Design Tokens (Editorial / Swiss minimal)
+   Light is the default; `.dark` on <html> flips the theme (toggle in UI).
+   Palette in oklch. Keep values here — do not hardcode colors in components.
+   =========================================================================== */
+
+:root {
+  /* Surfaces & ink */
+  --color-paper: oklch(99% 0.004 95);      /* page background — warm near-white */
+  --color-surface: oklch(100% 0 0);        /* cards / raised surfaces */
+  --color-ink: oklch(22% 0.012 60);        /* primary text */
+  --color-muted: oklch(52% 0.012 60);      /* secondary text */
+  --color-faint: oklch(68% 0.01 60);       /* tertiary / timestamps */
+  --color-rule: oklch(90% 0.005 80);       /* hairline rules / borders */
+  --color-accent: oklch(55% 0.205 25);     /* signal red — used sparingly */
+  --color-accent-ink: oklch(98% 0.01 25);  /* text on accent */
+
+  /* Type scale (fluid) */
+  --text-xs: clamp(0.75rem, 0.72rem + 0.1vw, 0.8rem);
+  --text-sm: clamp(0.85rem, 0.82rem + 0.15vw, 0.9rem);
+  --text-base: clamp(0.95rem, 0.9rem + 0.25vw, 1.05rem);
+  --text-lg: clamp(1.1rem, 1rem + 0.4vw, 1.3rem);
+  --text-xl: clamp(1.4rem, 1.2rem + 0.8vw, 1.85rem);
+  --text-display: clamp(2.2rem, 1.6rem + 2.6vw, 4rem);
+
+  /* Spacing rhythm */
+  --space-gutter: clamp(1rem, 0.7rem + 1.4vw, 2rem);
+  --space-section: clamp(2.5rem, 1.8rem + 3vw, 5rem);
+
+  /* Radius — minimal, Swiss */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+
+  /* Motion */
+  --duration-fast: 140ms;
+  --duration-normal: 260ms;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark {
+  --color-paper: oklch(16% 0.01 60);
+  --color-surface: oklch(20% 0.012 60);
+  --color-ink: oklch(95% 0.005 95);
+  --color-muted: oklch(72% 0.012 60);
+  --color-faint: oklch(58% 0.01 60);
+  --color-rule: oklch(30% 0.01 60);
+  --color-accent: oklch(64% 0.19 25);
+  --color-accent-ink: oklch(18% 0.02 25);
+}
+
+/* Map tokens to Tailwind utilities (bg-paper, text-ink, border-rule, …) */
+@theme inline {
+  --color-paper: var(--color-paper);
+  --color-surface: var(--color-surface);
+  --color-ink: var(--color-ink);
+  --color-muted: var(--color-muted);
+  --color-faint: var(--color-faint);
+  --color-rule: var(--color-rule);
+  --color-accent: var(--color-accent);
+  --color-accent-ink: var(--color-accent-ink);
+
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-fraunces);
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
