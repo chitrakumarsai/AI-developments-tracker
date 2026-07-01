@@ -8,12 +8,19 @@ import type {
 } from "../types";
 import { sanitizeText, sanitizeUrl } from "../sanitize";
 
+/**
+ * Generic RSS/Atom connector — the link-first reference implementation
+ * (CLAUDE.md §7). Handles any standard feed: arXiv category feeds, company/lab
+ * blogs, newsletters, Reddit/YouTube RSS, etc. New RSS sources are added as
+ * `sources` rows with `ingestion_type='rss'` — no new code (see registry.ts).
+ */
+
 /** Cap items stored per source per run (preference: latest 50). */
 const MAX_ITEMS = 50;
 const FETCH_TIMEOUT_MS = 15_000;
 const USER_AGENT = "AIChronicles/0.1 (+https://github.com/ai-developments-tracker)";
 
-type ArxivEntry = {
+type RssEntry = {
   title?: string;
   link?: string;
   content?: string;
@@ -22,7 +29,7 @@ type ArxivEntry = {
   isoDate?: string;
 };
 
-const parser = new Parser<unknown, ArxivEntry>();
+const parser = new Parser<unknown, RssEntry>();
 
 const PRIVATE_HOST = [
   /^localhost$/i,
@@ -59,10 +66,10 @@ function unsafeSourceUrlReason(url: string): string | null {
 }
 
 /**
- * Parse an arXiv RSS payload into normalized, sanitized items. Pure and
+ * Parse an RSS payload into normalized, sanitized items. Pure and
  * network-free so it can be tested against a saved fixture.
  */
-export async function parseArxivFeed(
+export async function parseRssFeed(
   xml: string,
   source: SourceRef,
 ): Promise<IngestionResult> {
@@ -94,11 +101,10 @@ export async function parseArxivFeed(
 }
 
 /**
- * arXiv RSS connector — the reference implementation of the link-first
- * connector contract (CLAUDE.md §7). A failing fetch yields warnings, never a
- * throw, so one bad source can't abort a multi-source run (§12.7).
+ * RSS connector. A failing fetch yields warnings, never a throw, so one bad
+ * source can't abort a multi-source run (§12.7).
  */
-export const arxivConnector: Connector = async (source) => {
+export const rssConnector: Connector = async (source) => {
   const unsafeReason = unsafeSourceUrlReason(source.url);
   if (unsafeReason) {
     return {
@@ -123,7 +129,7 @@ export const arxivConnector: Connector = async (source) => {
       };
     }
     const xml = await response.text();
-    return await parseArxivFeed(xml, source);
+    return await parseRssFeed(xml, source);
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown fetch error";
     return {

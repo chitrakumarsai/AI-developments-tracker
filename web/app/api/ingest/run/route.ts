@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getServerClient } from "@/lib/supabase/server";
-import { arxivConnector } from "@/lib/ingestion/rss/arxiv";
+import { getConnector } from "@/lib/ingestion/registry";
 import { persistItems } from "@/lib/ingestion/persist";
 import type { SourceRow } from "@/lib/supabase/types";
 
@@ -11,9 +11,10 @@ const querySchema = z.object({ source: z.string().min(1).default("all") });
 /**
  * POST /api/ingest/run?source=<id|all> — manual ingestion trigger.
  *
- * Subphase 1.1: every active source is arXiv RSS, so all are dispatched to the
- * arXiv connector. The catalog-driven dispatcher (by `ingestion_type`) arrives
- * in 1.2; scheduled refresh in 1.3. Not the cron route.
+ * Catalog-driven (§6/§7): loads active sources and dispatches each to the
+ * connector registered for its `ingestion_type`. Sources whose type has no
+ * connector yet (api/scrape/manual) are skipped with a warning. Scheduled
+ * refresh arrives in 1.3. Not the cron route.
  */
 export async function POST(request: Request) {
   // Auth: when CRON_SECRET is configured (any deployed env, and required once
@@ -40,11 +41,7 @@ export async function POST(request: Request) {
   }
 
   const client = getServerClient();
-  let query = client
-    .from("sources")
-    .select("*")
-    .eq("status", "active")
-    .eq("ingestion_type", "rss");
+  let query = client.from("sources").select("*").eq("status", "active");
   if (parsed.data.source !== "all") {
     query = query.eq("id", parsed.data.source);
   }
@@ -59,7 +56,17 @@ export async function POST(request: Request) {
 
   const perSource = [];
   for (const source of (sources ?? []) as SourceRow[]) {
-    const ingestion = await arxivConnector({
+    const connector = getConnector(source.ingestion_type);
+    if (!connector) {
+      perSource.push({
+        source: source.name,
+        added: 0,
+        skipped: 0,
+        warnings: [`No connector for ingestion_type '${source.ingestion_type}' yet.`],
+      });
+      continue;
+    }
+    const ingestion = await connector({
       id: source.id,
       name: source.name,
       category: source.category,
