@@ -14,8 +14,10 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Anchored to repo root so they only match Python build output — NOT the
+# Next.js app source at web/lib/ (which must be committed).
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -40,6 +42,9 @@ pip-delete-this-directory.txt
 htmlcov/
 .tox/
 .nox/
+coverage/
+test-results/
+playwright-report/
 .coverage
 .coverage.*
 .cache

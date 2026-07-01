@@ -1,3 +1,10 @@
+import { Suspense } from "react";
+
+import { FeedList } from "@/components/feed/FeedList";
+
+// The feed reflects live database state, so render per-request (not at build).
+export const dynamic = "force-dynamic";
+
 const CATEGORIES = [
   "Papers",
   "Repos",
@@ -6,6 +13,14 @@ const CATEGORIES = [
   "Social",
   "Products",
 ] as const;
+
+function FeedFallback() {
+  return (
+    <div className="py-[var(--space-section)] text-center text-sm text-muted">
+      Loading the feed…
+    </div>
+  );
+}
 
 export default function Home() {
   return (
@@ -36,17 +51,10 @@ export default function Home() {
       </header>
 
       <main className="flex flex-1 flex-col">
-        <section
-          aria-label="Feed"
-          className="flex flex-1 items-center justify-center py-[var(--space-section)] text-center"
-        >
-          <div className="max-w-sm">
-            <p className="font-display text-xl text-ink">No signal yet.</p>
-            <p className="mt-2 text-sm leading-relaxed text-muted">
-              The feed is wired and waiting. The first source — arXiv — gets
-              connected in the next slice, and items will appear here.
-            </p>
-          </div>
+        <section aria-label="Feed" className="flex flex-1 flex-col">
+          <Suspense fallback={<FeedFallback />}>
+            <FeedList />
+          </Suspense>
         </section>
       </main>
 
