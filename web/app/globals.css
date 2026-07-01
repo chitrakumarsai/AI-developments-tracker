@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ===========================================================================
-   Sonar — Design Tokens (Editorial / Swiss minimal)
+   AI Chronicles — Design Tokens (Editorial / Swiss minimal)
    Light is the default; `.dark` on <html> flips the theme (toggle in UI).
    Palette in oklch. Keep values here — do not hardcode colors in components.
    =========================================================================== */

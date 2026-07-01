@@ -1,4 +1,4 @@
--- Sonar — initial schema (Phase 1)
+-- AI Chronicles — initial schema (Phase 1)
 -- Core entities: sources, items, feedback, source_candidates, saved_views.
 -- RLS is intentionally left OFF in Phase 1 (single-user, no auth).
 -- Phase 2 adds users + enables RLS with per-user policies. See CLAUDE.md §11, §21.

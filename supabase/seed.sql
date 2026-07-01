@@ -1,4 +1,4 @@
--- Sonar — seed data for local development.
+-- AI Chronicles — seed data for local development.
 -- Seeds the four arXiv category feeds used by the 1.1 vertical slice
 -- (cs.AI, cs.LG, cs.CL, cs.CV). Each is a separate RSS source.
 

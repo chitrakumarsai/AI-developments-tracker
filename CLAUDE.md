@@ -433,7 +433,7 @@ Goal: take the proven product live for other users.
 ai-developments-tracker/            # repo root: docs, supabase/, ECC/, .claude/
 ├── web/                            # Next.js app  ← Vercel root dir
 │   ├── app/                        # App Router
-│   │   ├── layout.tsx · page.tsx   # Sonar shell (Editorial/Swiss, Inter+Fraunces)
+│   │   ├── layout.tsx · page.tsx   # AI Chronicles shell (Editorial/Swiss, Inter+Fraunces)
 │   │   ├── globals.css             # design tokens (light + .dark)
 │   │   └── api/                    # Route Handlers (items, sources, feedback, cron)
 │   ├── components/                 # by feature/surface: feed/ filters/ sources/ ui/

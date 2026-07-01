@@ -1,5 +1,5 @@
 /**
- * Ingestion connector contract (Sonar).
+ * Ingestion connector contract (AI Chronicles).
  *
  * Every source connector — RSS, API, scrape, or manual — conforms to this
  * shape. The contract is LINK-FIRST: a connector returns metadata plus a link,

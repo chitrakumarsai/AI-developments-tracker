@@ -8,7 +8,7 @@ import { expect, test } from "@playwright/test";
 test("renders arXiv items on mobile and links to the source", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Sonar");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("AI Chronicles");
 
   const firstItem = page.locator("article").first();
   await expect(firstItem).toBeVisible();

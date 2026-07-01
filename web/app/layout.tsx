@@ -15,9 +15,9 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "Sonar — Find the signal in AI",
+  title: "AI Chronicles — Find the signal in AI",
   description:
-    "A personal AI radar. Sonar surfaces the one thing worth reading across papers, repos, models, and the noise — and links you straight to it.",
+    "A personal AI radar. AI Chronicles surfaces the one thing worth reading across papers, repos, models, and the noise — and links you straight to it.",
 };
 
 type RootLayoutProps = Readonly<{

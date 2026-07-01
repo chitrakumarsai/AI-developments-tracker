@@ -1,5 +1,5 @@
 /**
- * Database row types (Sonar, Phase 1).
+ * Database row types (AI Chronicles, Phase 1).
  *
  * Hand-written to mirror `supabase/migrations/20260622000001_init.sql`. Swap for
  * `supabase gen types typescript --local` output once the CLI is wired into the

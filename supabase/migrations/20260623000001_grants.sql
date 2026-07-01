@@ -1,4 +1,4 @@
--- Sonar — grant Supabase API roles access to the public schema (Phase 1).
+-- AI Chronicles — grant Supabase API roles access to the public schema (Phase 1).
 --
 -- The init migration creates the tables but does not grant privileges to the
 -- Supabase API roles, so PostgREST requests (the service-role key used by

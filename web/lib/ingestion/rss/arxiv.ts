@@ -11,7 +11,7 @@ import { sanitizeText, sanitizeUrl } from "../sanitize";
 /** Cap items stored per source per run (preference: latest 50). */
 const MAX_ITEMS = 50;
 const FETCH_TIMEOUT_MS = 15_000;
-const USER_AGENT = "Sonar/0.1 (+https://github.com/ai-developments-tracker)";
+const USER_AGENT = "AIChronicles/0.1 (+https://github.com/ai-developments-tracker)";
 
 type ArxivEntry = {
   title?: string;

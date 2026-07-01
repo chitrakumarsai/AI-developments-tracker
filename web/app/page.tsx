@@ -28,7 +28,7 @@ export default function Home() {
       <header className="border-b border-rule py-6">
         <div className="flex items-baseline justify-between">
           <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">
-            Sonar
+            AI Chronicles
           </h1>
           <span className="text-xs uppercase tracking-[0.18em] text-faint">
             Find the signal in AI
@@ -59,7 +59,7 @@ export default function Home() {
       </main>
 
       <footer className="border-t border-rule py-5 text-xs text-faint">
-        Sonar · Phase 1 · single-user development build
+        AI Chronicles · Phase 1 · single-user development build
       </footer>
     </div>
   );
