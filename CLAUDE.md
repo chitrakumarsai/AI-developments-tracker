@@ -54,13 +54,13 @@ Primary target is **Supabase + Vercel** (single cloud platform, free auth in Pha
 | **Styling** | Tailwind CSS | Design tokens for palette/typography/spacing; no ad-hoc magic values |
 | **Hosting** | Vercel | Git-driven deploys, preview URLs per PR |
 | **API / backend** | Next.js Route Handlers + Server Actions | Primary backend logic lives here |
-| **Database** | Supabase (PostgreSQL) | From day one; local via Supabase CLI (`supabase start`) |
+| **Database** | Supabase (PostgreSQL) | From day one. Development runs against a **hosted Supabase Cloud** project; local `supabase start` remains available as a fallback. Prod project added in Phase 2.3 |
 | **Auth** | Supabase Auth | Disabled/single-user in Phase 1; powers multi-user in Phase 2 |
 | **Storage** | Supabase Storage | Only if needed (e.g., cached thumbnails) |
 | **Scheduling** | Vercel Cron | Triggers scheduled refresh |
 | **Ingestion** | TS in Next.js route handlers (`rss-parser`, `undici`) | Primary path |
 | **Ingestion worker (optional)** | FastAPI (Python) + `feedparser`/`httpx`/`APScheduler` | Only for sources where Python parsing is clearly better; deployed separately |
-| **LLM** | Claude — `claude-sonnet-4-6` (quality), `claude-haiku-4-5` (bulk) | Summaries + relevance scoring; budget-aware, results cached |
+| **LLM** | OpenAI — `gpt-4o` (quality), `gpt-4o-mini` (bulk) | Summaries + relevance scoring; budget-aware, results cached. `OPENAI_API_KEY` |
 | **Migrations** | Supabase migrations (SQL via Supabase CLI) | Schema is versioned from the first table |
 
 > Stack is decided. Do not switch frameworks/platforms without explicit user approval. Within these choices, libraries are proposed per slice via the preference checkpoint (§12.4). The existing root `main.py` / `pyproject.toml` either become the optional `worker/` (FastAPI) or are retired during subphase 1.0 — decided with the user.
@@ -442,7 +442,7 @@ ai-developments-tracker/            # repo root: docs, supabase/, ECC/, .claude/
 │   │   ├── supabase/               # client + typed queries
 │   │   ├── ingestion/              # types.ts (connector contract) + rss/ api/ scrape/ manual/
 │   │   ├── ranking/                # recency + weight + feedback + LLM score
-│   │   └── llm/                    # Claude summarize + score (budget-aware, cached)
+│   │   └── llm/                    # OpenAI summarize + score (budget-aware, cached)
 │   ├── .env.example
 │   └── package.json
 ├── supabase/
@@ -492,7 +492,7 @@ Each entry is the spec for a skill to create (name · when to use · what it doe
 | **`source-onboard`** | Adding a new source | Drives Discover → rate → promote-if-top-rated → catalog; validates the feed/URL works | New `sources` row (`active`) or `source_candidates` (backlog) |
 | **`source-audit`** | Periodic source review | Finds dead/low-signal sources, re-weights from feedback, flags pruning candidates | Audit report + proposed catalog changes (user-approved) |
 | **`ingestion-connector`** | Wiring a new RSS/API/scrape connector | Scaffolds a connector with the link-first contract (metadata + link), error handling, tests; sanitizes untrusted content | Connector module + tests in `lib/ingestion/` (or `worker/`) |
-| **`item-summarize`** | Items need summaries / relevance | Budget-aware Claude pipeline: summarize + score relevance, cache results, treat input as untrusted | Populated `summary` + `relevance_score` |
+| **`item-summarize`** | Items need summaries / relevance | Budget-aware OpenAI pipeline (`gpt-4o` / `gpt-4o-mini`): summarize + score relevance, cache results, treat input as untrusted | Populated `summary` + `relevance_score` |
 | **`feed-rank`** | Tuning what surfaces first | Implements/adjusts ranking = recency + source weight + feedback + LLM score | Updated ranking logic + tests |
 | **`filter-build`** | Adding a filter dimension | Builds a filter end-to-end: data field → API query param → mobile-first UI control | Working filter across the stack |
 | **`mobile-ui-check`** | After any UI change | Verifies mobile-first: breakpoints (320/375/768/1024/1440), touch-target sizes, performance budget | Pass/fail report + fixes |
@@ -574,7 +574,7 @@ cd worker && pytest
 
 ## 21. Security & Secrets
 
-- **No hardcoded secrets** — API keys (GitHub, Reddit, HF, X, Claude) and Supabase keys live in env vars; validate presence at startup. `.env` is gitignored; ship `.env.example`.
+- **No hardcoded secrets** — API keys (GitHub, Reddit, HF, X, OpenAI) and Supabase keys live in env vars; validate presence at startup. `.env` is gitignored; ship `.env.example`.
 - **Supabase keys** — the **anon key** is the only key allowed client-side; the **service-role key** is server-side only (route handlers / worker) and never exposed to the browser.
 - **Row Level Security (RLS)** — enable RLS on all user-scoped tables in Phase 2; write explicit policies so users only see their own preferences/feedback. `database-reviewer` checks policies.
 - **Untrusted ingestion** — sanitize all fetched content before storing/rendering; no raw-HTML injection; guard `item-summarize` against prompt injection by wrapping/validating external text.

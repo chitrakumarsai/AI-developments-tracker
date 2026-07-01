@@ -13,7 +13,7 @@ Detailed task breakdown for Phase 1. Master view: [`ROADMAP.md`](../../ROADMAP.m
 ### Tasks
 1. **Preference-checkpoint** — confirm: product name (or defer), monorepo layout, fate of root `main.py` (→ `worker/` or retire), Tailwind design-token starting palette/typography.
 2. **Scaffold Next.js** — App Router + TypeScript + Tailwind; base layout; `styles/tokens.css` (palette, typography, spacing, motion tokens).
-3. **Supabase setup** — `supabase init`; local stack (`supabase start`); typed client in `lib/supabase/`; `.env.example` (Supabase URL/anon/service-role, `ANTHROPIC_API_KEY`).
+3. **Supabase setup** — `supabase init`; local stack (`supabase start`); typed client in `lib/supabase/`; `.env.example` (Supabase URL/anon/service-role, `OPENAI_API_KEY`).
 4. **First migration** — create core tables: `sources`, `items`, `feedback`, `source_candidates`, `saved_views` (schema per CLAUDE.md §11). Add indexes (`items.url` unique for dedupe, `items.published_at`, `items.source_id`).
 5. **Repo hygiene** — ESLint + Prettier; Playwright + test runner; minimal CI (lint + test) ; `.gitignore` for `.env`; decide/retire `main.py`.
 6. **Seed** — `supabase/seed.sql` with one arXiv source row (`status='active'`) ready for 1.1.
