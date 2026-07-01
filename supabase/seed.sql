@@ -77,4 +77,15 @@ values
     'rss', 'active', 7,
     array['lab', 'academia', 'blog'],
     'Berkeley AI Research blog.'
+  ),
+  -- GitHub Repositories — notable AI repos via the Search API (1.2 slice 2).
+  -- ingestion_type='api'; the GitHub connector injects a rolling pushed:>= date
+  -- + stars sort at runtime. Topics here are editable via the catalog.
+  (
+    'GitHub — Notable AI repos',
+    'GitHub Repositories',
+    'https://api.github.com/search/repositories?q=topic:machine-learning+topic:llm+topic:agents',
+    'api', 'active', 9,
+    array['github', 'repos'],
+    'Recently-active, most-starred repos in AI topics. Needs GITHUB_TOKEN.'
   );

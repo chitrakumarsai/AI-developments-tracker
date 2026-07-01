@@ -7,6 +7,7 @@ import type {
   SourceRef,
 } from "../types";
 import { sanitizeText, sanitizeUrl } from "../sanitize";
+import { FETCH_TIMEOUT_MS, USER_AGENT, unsafeUrlReason } from "../net";
 
 /**
  * Generic RSS/Atom connector — the link-first reference implementation
@@ -17,8 +18,6 @@ import { sanitizeText, sanitizeUrl } from "../sanitize";
 
 /** Cap items stored per source per run (preference: latest 50). */
 const MAX_ITEMS = 50;
-const FETCH_TIMEOUT_MS = 15_000;
-const USER_AGENT = "AIChronicles/0.1 (+https://github.com/ai-developments-tracker)";
 
 type RssEntry = {
   title?: string;
@@ -30,40 +29,6 @@ type RssEntry = {
 };
 
 const parser = new Parser<unknown, RssEntry>();
-
-const PRIVATE_HOST = [
-  /^localhost$/i,
-  /^127\./,
-  /^10\./,
-  /^172\.(1[6-9]|2\d|3[01])\./,
-  /^192\.168\./,
-  /^169\.254\./, // link-local / cloud metadata (IMDS)
-  /^0\.0\.0\.0$/,
-  /^\[?::1\]?$/,
-  /\.local$/i,
-];
-
-/**
- * SSRF guard: a source URL must be http/https and must not point at a
- * private, loopback, or link-local host. Returns an error message if unsafe,
- * otherwise null. (CLAUDE.md §12.7 — source rows are untrusted once a UI can
- * add them.)
- */
-function unsafeSourceUrlReason(url: string): string | null {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return "invalid URL";
-  }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    return `disallowed scheme "${parsed.protocol}"`;
-  }
-  if (PRIVATE_HOST.some((pattern) => pattern.test(parsed.hostname))) {
-    return `private/loopback host "${parsed.hostname}"`;
-  }
-  return null;
-}
 
 /**
  * Parse an RSS payload into normalized, sanitized items. Pure and
@@ -105,7 +70,7 @@ export async function parseRssFeed(
  * source can't abort a multi-source run (§12.7).
  */
 export const rssConnector: Connector = async (source) => {
-  const unsafeReason = unsafeSourceUrlReason(source.url);
+  const unsafeReason = unsafeUrlReason(source.url);
   if (unsafeReason) {
     return {
       sourceId: source.id,
