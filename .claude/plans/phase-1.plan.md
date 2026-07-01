@@ -73,8 +73,9 @@ Detailed task breakdown for Phase 1. Master view: [`ROADMAP.md`](../../ROADMAP.m
 6. **Hacker News** connector (Algolia HN API, AI stories). *(TDD.)*
 7. **Reddit** connector (subreddit RSS/API, filtered). *(TDD.)*
 8. **Newsletters / YouTube** connectors (RSS). *(TDD.)*
-9. **X / LinkedIn** — deferred to last; prefer curated lists + manual entry; respect ToS (may stay manual in Phase 1).
-10. **Category surfacing** — items carry `category`; feed shows a mix; basic category chips (full filtering in 1.5).
+9. **Secondary / aggregator sources (link-first)** — onboard *curator* feeds that surface others' content (Hugging Face Papers, Papers with Code, newsletters, Reddit roundups) as ordinary RSS/API sources whose `items` link to the original paper/post/tweet. Capture original-source attribution where the feed provides it. *(TDD.)*
+10. **X / LinkedIn** — no direct connector in Phase 1; surface them *via* the secondary/aggregator sources above + manual entry; respect ToS. A direct connector is added only if a compliant API path appears. (Finding new accounts/lists to follow is handled in 1.6.)
+11. **Category surfacing** — items carry `category`; feed shows a mix; basic category chips (full filtering in 1.5).
 
 ### Acceptance criteria
 - Feed mixes items across multiple categories, all driven by the `sources` table (zero hardcoded sources).
@@ -153,10 +154,37 @@ Detailed task breakdown for Phase 1. Master view: [`ROADMAP.md`](../../ROADMAP.m
 
 ---
 
+## Subphase 1.6 — Source Discovery & Onboarding
+
+**Objective:** turn *meta-sources* (lists/articles that recommend who/what to follow) into vetted catalog sources through a human rating gate, before anything reaches the feed.
+
+### Slice = paste meta-source → extract candidates → rate → promote → validate
+
+### Tasks
+1. **Preference-checkpoint** — confirm rating scale (keep/skip/star vs 1–5), how candidates are extracted (paste a URL vs paste raw text/links), and the promotion threshold.
+2. **Candidate intake** — a route/UI to submit a **meta-source** (a "best X to follow" article/list/thread); extract candidate handles/feeds/URLs into `source_candidates` (`platform`, `handle_or_url`, `why_suggested`, `sample_items`, `state='suggested'`). Treat pasted/fetched content as **untrusted** — sanitize. *(TDD.)*
+3. **Rating gate UI** — list candidates with who/what they are, sample items, and why suggested; user rates (keep/skip/star). Mobile-first, thumb-friendly. *(TDD.)*
+4. **Promote** — top-rated candidates → insert into `sources` as `active`; rating seeds initial `priority`/`weight`; `state='promoted'`. Low-rated → `rejected`/backlog (restorable). *(TDD.)*
+5. **Validate on promote** — confirm the promoted feed/URL actually fetches (reuse the 1.2 connector dispatch); block promotion on a dead feed with a clear error.
+6. **Backlog view** — list suggested/rejected candidates for later reconsideration.
+
+### Acceptance criteria
+- A "who to follow" list can be turned into vetted `active` sources via the rating gate.
+- Nothing reaches the feed without explicit user approval; low-rated candidates stay in a backlog.
+- Promotion validates the feed works; pasted content is sanitized; flows have tests.
+
+### Skills / agents
+`source-discovery`, `source-onboard`, `ingestion-connector` (validation), `react-patterns`, `react-test`, `security-reviewer` (untrusted meta-source input), `code-reviewer`.
+
+> **Deferred to Phase 2.4:** automated citation/mention-trail discovery + periodic "new candidates to review" digest + in-app Source Management UI (add/pause/re-weight/archive). **Depends on:** 1.2; benefits from 1.4. *Can be pulled forward right after 1.2 if discovery becomes the priority.*
+
+---
+
 ## Phase 1 Exit Checklist
 - [ ] Owner uses the site daily on their phone.
-- [ ] All core categories ingested, catalog-driven, refreshing automatically.
+- [ ] All core categories ingested (including secondary/aggregator sources), catalog-driven, refreshing automatically.
 - [ ] Feedback shapes the feed; sources re-weight.
 - [ ] Filtering/search/saved-views fast and pleasant on mobile.
+- [ ] New sources can be discovered from meta-sources and vetted through the rating gate.
 - [ ] Accessibility + mobile CWV targets met.
 - [ ] → Proceed to Phase 2 planning (2.0).

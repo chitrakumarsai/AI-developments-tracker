@@ -406,10 +406,11 @@ Goal: a working website running locally that the user can use daily.
 |---|---|---|
 | **1.0 — Planning & scaffold** | Write PRD + roadmap. Finalize data model + Supabase schema. Scaffold Next.js app + Supabase local. Decide fate of existing `main.py`. No feature code. | Approved planning docs + running skeleton |
 | **1.1 — First vertical slice** | One source (e.g., arXiv *or* GitHub trending) → fetched → stored in Supabase → displayed in a clean, mobile-first list. Refresh manual/stubbed. | Running website showing real AI content from one source |
-| **1.2 — More sources** | Add remaining categories one at a time (papers, repos, models, companies, people, X, LinkedIn, Reddit, products, conferences). | Aggregation across all core categories |
+| **1.2 — More sources** | Add remaining categories one at a time (papers, repos, models, companies, people, X, LinkedIn, Reddit, products, conferences). Includes **secondary / aggregator sources** (curators that surface others' content — HF Papers, Papers with Code, newsletters, Reddit roundups) ingested link-first; this is the **preferred path for X & LinkedIn** (ToS-restricted to ingest directly). | Aggregation across all core categories |
 | **1.3 — Scheduled refresh** | Automate daily / two-day refresh via Vercel Cron (+ per-source intervals). | Content stays current automatically |
 | **1.4 — Feedback loop** | Thumbs up/down; basic preference-aware ranking; source re-weighting. | The feed adapts to what the user likes |
 | **1.5 — Filters + UI/UX polish** | Full filtering & display controls; modern, opinionated, highly mobile-friendly design; accessibility pass. | A website that feels great on the phone |
+| **1.6 — Source discovery & onboarding** | Semi-manual discovery from **meta-sources** (§5): user pastes a "who/what to follow" list/article → system extracts `source_candidates` → user **rates** (keep/skip/star) → only top-rated are promoted to `active`. Validates each feed/URL works. *(Automated citation/mention-trail discovery + in-app Source Management UI deferred to 2.4.)* | New sources are vetted through the rating gate before they ever feed the site |
 
 ### Phase 2 — Production (deployed, multi-user, authenticated)
 Goal: take the proven product live for other users.
@@ -420,7 +421,7 @@ Goal: take the proven product live for other users.
 | **2.1 — Authentication** | Supabase Auth — accounts + login. | Individual users can sign in |
 | **2.2 — Per-user preferences** | Per-user preferences/feedback via RLS; personalized feeds. | Every user gets a feed tuned to them |
 | **2.3 — Deployment & hardening** | Production deploy to Vercel + Supabase; security review; mobile-network perf tuning. | Live, secure, fast website |
-| **2.4 — Discoverability & growth** | SEO, sharing, onboarding for new users. | Others can find and use the site |
+| **2.4 — Discoverability & growth** | SEO, sharing, onboarding for new users; **automated source discovery** (citation/mention-trail analysis, periodic "new candidates to review" digest) and the in-app **Source Management UI** (add/pause/re-weight/archive without code). | Others can find and use the site; sources self-suggest and are managed in-app |
 
 ---
 
