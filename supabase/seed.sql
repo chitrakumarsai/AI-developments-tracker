@@ -78,6 +78,73 @@ values
     array['lab', 'academia', 'blog'],
     'Berkeley AI Research blog.'
   ),
+  -- FAANG + NVIDIA company blogs (1.2 slice 6). All ingestion_type='rss' through
+  -- the generic connector; feeds validated to fetch 2026-07-02. AI-focused feeds
+  -- get higher priority; general engineering blogs sit lower.
+  (
+    'Google Research — Blog',
+    'Companies & Labs',
+    'https://research.google/blog/rss/',
+    'rss', 'active', 9,
+    array['lab', 'google', 'research', 'blog'],
+    'Google Research blog — AI/ML research announcements.'
+  ),
+  (
+    'Google — The Keyword (AI)',
+    'Companies & Labs',
+    'https://blog.google/technology/ai/rss/',
+    'rss', 'active', 8,
+    array['google', 'product', 'ai', 'blog'],
+    'Google product/AI announcements from The Keyword.'
+  ),
+  (
+    'NVIDIA — Developer Blog',
+    'Companies & Labs',
+    'https://developer.nvidia.com/blog/feed/',
+    'rss', 'active', 8,
+    array['nvidia', 'gpu', 'deep-learning', 'blog'],
+    'NVIDIA technical/developer blog — GPU + deep learning.'
+  ),
+  (
+    'Amazon Science',
+    'Companies & Labs',
+    'https://www.amazon.science/index.rss',
+    'rss', 'active', 8,
+    array['amazon', 'research', 'blog'],
+    'Amazon Science — research across ML, robotics, and more.'
+  ),
+  (
+    'AWS — Machine Learning Blog',
+    'Companies & Labs',
+    'https://aws.amazon.com/blogs/machine-learning/feed/',
+    'rss', 'active', 7,
+    array['aws', 'ml', 'cloud', 'blog'],
+    'AWS Machine Learning blog — applied ML on AWS.'
+  ),
+  (
+    'Apple — Machine Learning Research',
+    'Companies & Labs',
+    'https://machinelearning.apple.com/rss.xml',
+    'rss', 'active', 8,
+    array['apple', 'research', 'blog'],
+    'Apple Machine Learning Research publications and updates.'
+  ),
+  (
+    'Meta — Engineering',
+    'Companies & Labs',
+    'https://engineering.fb.com/feed/',
+    'rss', 'active', 6,
+    array['meta', 'engineering', 'blog'],
+    'Meta Engineering blog — includes AI/ML infra and research posts.'
+  ),
+  (
+    'Netflix — Tech Blog',
+    'Companies & Labs',
+    'https://netflixtechblog.com/feed',
+    'rss', 'active', 5,
+    array['netflix', 'engineering', 'blog'],
+    'Netflix Tech Blog — ML/personalization and platform engineering.'
+  ),
   -- GitHub Repositories — notable AI repos via the Search API (1.2 slice 2).
   -- ingestion_type='api'; the GitHub connector injects a rolling pushed:>= date
   -- + stars sort at runtime. Topics here are editable via the catalog.
