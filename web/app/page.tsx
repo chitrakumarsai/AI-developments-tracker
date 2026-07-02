@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { FeedList } from "@/components/feed/FeedList";
 import { FEED_SECTIONS, sectionForSlug } from "@/lib/feed/categories";
+import { INITIAL_FEED_LIMIT, MAX_FEED_LIMIT } from "@/lib/feed/queries";
 
 // The feed reflects live database state, so render per-request (not at build).
 export const dynamic = "force-dynamic";
@@ -18,10 +19,14 @@ function FeedFallback() {
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ section?: string }>;
+  searchParams: Promise<{ section?: string; show?: string }>;
 }) {
-  const { section: sectionParam } = await searchParams;
+  const { section: sectionParam, show: showParam } = await searchParams;
   const active = sectionForSlug(sectionParam);
+  const requested = Number.parseInt(showParam ?? "", 10);
+  const limit = Number.isNaN(requested)
+    ? INITIAL_FEED_LIMIT
+    : Math.min(Math.max(requested, INITIAL_FEED_LIMIT), MAX_FEED_LIMIT);
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-[var(--space-gutter)]">
@@ -60,8 +65,13 @@ export default async function Home({
 
       <main className="flex flex-1 flex-col">
         <section aria-label="Feed" className="flex flex-1 flex-col">
-          <Suspense key={active.slug} fallback={<FeedFallback />}>
-            <FeedList category={active.category} sectionLabel={active.label} />
+          <Suspense key={`${active.slug}:${limit}`} fallback={<FeedFallback />}>
+            <FeedList
+              category={active.category}
+              sectionLabel={active.label}
+              sectionSlug={active.slug}
+              limit={limit}
+            />
           </Suspense>
         </section>
       </main>

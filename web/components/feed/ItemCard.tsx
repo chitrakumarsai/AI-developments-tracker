@@ -18,6 +18,20 @@ function formatRelative(iso: string | null): string {
   return `${Math.floor(months / MONTHS_PER_YEAR)}y ago`;
 }
 
+const ABSOLUTE_DATE = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+/** Absolute publish date, e.g. "1 Jul 2026" — so recency is judgeable at a glance. */
+function formatAbsolute(iso: string | null): string {
+  if (!iso) return "";
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return "";
+  return ABSOLUTE_DATE.format(then);
+}
+
 type ItemCardProps = {
   item: ItemRow;
 };
@@ -49,7 +63,18 @@ export function ItemCard({ item }: ItemCardProps) {
 
       <div className="mt-3 flex items-center justify-between text-xs text-faint">
         <span className="truncate pr-3">
-          {item.author ?? "Unknown"} · {formatRelative(item.published_at)}
+          {item.author ?? "Unknown"}
+          {item.published_at ? (
+            <>
+              {" · "}
+              <time dateTime={item.published_at} className="text-muted">
+                {formatAbsolute(item.published_at)}
+              </time>{" "}
+              <span className="text-faint">({formatRelative(item.published_at)})</span>
+            </>
+          ) : (
+            <> · undated</>
+          )}
         </span>
         <a
           href={item.url}

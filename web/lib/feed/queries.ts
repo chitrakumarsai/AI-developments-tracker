@@ -7,6 +7,14 @@ export const DEFAULT_FEED_LIMIT = 50;
 export const MAX_FEED_LIMIT = 100;
 
 /**
+ * Finite-first UX (app-feedback-v1): show a small, non-intimidating batch per
+ * section by default, and let the reader ask for more in steps rather than an
+ * endless scroll.
+ */
+export const INITIAL_FEED_LIMIT = 20;
+export const FEED_PAGE_STEP = 20;
+
+/**
  * Recent items for the feed, newest first. Optionally filtered to a single
  * `items.category` (used by the section tabs); pass null/undefined for all
  * categories. Phase 1 sort is recency only; relevance-aware ranking arrives in
