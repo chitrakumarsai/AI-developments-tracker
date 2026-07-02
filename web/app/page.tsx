@@ -1,18 +1,11 @@
 import { Suspense } from "react";
+import Link from "next/link";
 
 import { FeedList } from "@/components/feed/FeedList";
+import { FEED_SECTIONS, sectionForSlug } from "@/lib/feed/categories";
 
 // The feed reflects live database state, so render per-request (not at build).
 export const dynamic = "force-dynamic";
-
-const CATEGORIES = [
-  "Papers",
-  "Repos",
-  "Models",
-  "Companies",
-  "Social",
-  "Products",
-] as const;
 
 function FeedFallback() {
   return (
@@ -22,7 +15,14 @@ function FeedFallback() {
   );
 }
 
-export default function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ section?: string }>;
+}) {
+  const { section: sectionParam } = await searchParams;
+  const active = sectionForSlug(sectionParam);
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-[var(--space-gutter)]">
       <header className="border-b border-rule py-6">
@@ -36,24 +36,32 @@ export default function Home() {
         </div>
         <nav aria-label="Categories" className="mt-4 -mx-1 overflow-x-auto">
           <ul className="flex gap-1">
-            {CATEGORIES.map((category) => (
-              <li key={category}>
-                <button
-                  type="button"
-                  className="rounded-[var(--radius-sm)] px-3 py-1.5 text-sm text-muted transition-colors hover:text-ink hover:bg-rule/40"
-                >
-                  {category}
-                </button>
-              </li>
-            ))}
+            {FEED_SECTIONS.map((section) => {
+              const isActive = section.slug === active.slug;
+              return (
+                <li key={section.slug}>
+                  <Link
+                    href={section.slug === "all" ? "/" : `/?section=${section.slug}`}
+                    aria-current={isActive ? "page" : undefined}
+                    className={`inline-block rounded-[var(--radius-sm)] px-3 py-1.5 text-sm transition-colors ${
+                      isActive
+                        ? "bg-ink text-surface"
+                        : "text-muted hover:text-ink hover:bg-rule/40"
+                    }`}
+                  >
+                    {section.label}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </nav>
       </header>
 
       <main className="flex flex-1 flex-col">
         <section aria-label="Feed" className="flex flex-1 flex-col">
-          <Suspense fallback={<FeedFallback />}>
-            <FeedList />
+          <Suspense key={active.slug} fallback={<FeedFallback />}>
+            <FeedList category={active.category} sectionLabel={active.label} />
           </Suspense>
         </section>
       </main>

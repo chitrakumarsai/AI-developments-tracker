@@ -7,16 +7,21 @@ export const DEFAULT_FEED_LIMIT = 50;
 export const MAX_FEED_LIMIT = 100;
 
 /**
- * Recent items for the feed, newest first. Phase 1 sort is recency only;
- * relevance-aware ranking arrives in subphase 1.4.
+ * Recent items for the feed, newest first. Optionally filtered to a single
+ * `items.category` (used by the section tabs); pass null/undefined for all
+ * categories. Phase 1 sort is recency only; relevance-aware ranking arrives in
+ * subphase 1.4.
  */
 export async function getRecentItems(
   limit: number = DEFAULT_FEED_LIMIT,
+  category?: string | null,
 ): Promise<ItemRow[]> {
   const client = getServerClient();
-  const { data, error } = await client
-    .from("items")
-    .select("*")
+  let query = client.from("items").select("*");
+  if (category) {
+    query = query.eq("category", category);
+  }
+  const { data, error } = await query
     .order("published_at", { ascending: false, nullsFirst: false })
     .limit(limit);
 

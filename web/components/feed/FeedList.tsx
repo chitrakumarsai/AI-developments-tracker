@@ -13,14 +13,22 @@ function Notice({ title, body }: { title: string; body: string }) {
   );
 }
 
+type FeedListProps = {
+  /** DB category to filter to; null/undefined shows all categories. */
+  category?: string | null;
+  /** Section label, used only for the empty-state copy. */
+  sectionLabel?: string;
+};
+
 /**
- * Server component: loads recent items and renders the editorial feed.
- * Resilient — a Supabase failure shows a notice instead of crashing the route.
+ * Server component: loads recent items (optionally filtered to one category)
+ * and renders the editorial feed. Resilient — a Supabase failure shows a notice
+ * instead of crashing the route.
  */
-export async function FeedList() {
+export async function FeedList({ category, sectionLabel }: FeedListProps = {}) {
   let items: ItemRow[] = [];
   try {
-    items = await getRecentItems();
+    items = await getRecentItems(undefined, category);
   } catch {
     return (
       <Notice
@@ -31,10 +39,11 @@ export async function FeedList() {
   }
 
   if (items.length === 0) {
+    const scope = category ? `${sectionLabel ?? "this section"}` : "the feed";
     return (
       <Notice
         title="No signal yet."
-        body="The feed is wired and waiting. Run an arXiv ingest (POST /api/ingest/run) and items will appear here."
+        body={`Nothing in ${scope} yet. Once a matching source is ingested, items will appear here.`}
       />
     );
   }
