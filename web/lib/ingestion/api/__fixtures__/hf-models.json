@@ -1,0 +1,22 @@
+[
+  {
+    "id": "acme/fast-llm-8b",
+    "likes": 4200,
+    "downloads": 1250000,
+    "pipeline_tag": "text-generation",
+    "createdAt": "2026-06-24T12:00:00.000Z"
+  },
+  {
+    "id": "labs/vision-encoder",
+    "likes": 980,
+    "downloads": 320000,
+    "pipeline_tag": "image-classification",
+    "createdAt": "2026-06-22T08:30:00.000Z"
+  },
+  {
+    "likes": 5,
+    "downloads": 10,
+    "pipeline_tag": "text-generation",
+    "createdAt": "2026-06-01T00:00:00.000Z"
+  }
+]

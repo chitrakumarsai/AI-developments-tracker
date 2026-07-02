@@ -88,4 +88,23 @@ values
     'api', 'active', 9,
     array['github', 'repos'],
     'Recently-active, most-starred repos in AI topics. Needs GITHUB_TOKEN.'
+  ),
+  -- Hugging Face — daily curated papers + trending models (1.2 slice 4).
+  -- ingestion_type='api'; the HF connector dispatches by URL path. Token
+  -- optional (public endpoints) but HUGGINGFACE_TOKEN raises rate limits.
+  (
+    'Hugging Face — Daily Papers',
+    'Research Papers',
+    'https://huggingface.co/api/daily_papers',
+    'api', 'active', 9,
+    array['huggingface', 'papers', 'curated'],
+    'HF daily curated paper picks. Link-first to the HF paper page.'
+  ),
+  (
+    'Hugging Face — Trending models',
+    'LLM & Other Models',
+    'https://huggingface.co/api/models?sort=trendingScore&direction=-1&limit=50',
+    'api', 'active', 8,
+    array['huggingface', 'models', 'trending'],
+    'Trending models by HF trendingScore. Link-first to the model page.'
   );

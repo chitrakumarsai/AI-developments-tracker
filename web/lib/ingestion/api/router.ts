@@ -1,14 +1,16 @@
 import type { Connector } from "../types";
 import { githubConnector } from "./github";
+import { huggingfaceConnector } from "./huggingface";
 
 /**
  * API host router — dispatches `ingestion_type='api'` sources to the right
  * provider connector by URL host. Mirrors how one RSS connector serves all RSS
- * sources: one `api` entry in the registry, many providers behind it. Hugging
- * Face slots in as another host branch in the next slice.
+ * sources: one `api` entry in the registry, many providers behind it. Add a new
+ * provider as another host branch here.
  */
 const HOST_CONNECTORS: Array<{ match: (host: string) => boolean; connector: Connector }> = [
   { match: (host) => host === "api.github.com", connector: githubConnector },
+  { match: (host) => host === "huggingface.co", connector: huggingfaceConnector },
 ];
 
 export const apiConnector: Connector = async (source) => {

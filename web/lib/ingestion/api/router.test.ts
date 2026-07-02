@@ -24,10 +24,21 @@ describe("apiConnector (host router)", () => {
     expect(result.warnings.every((w) => !/no api connector/i.test(w))).toBe(true);
   });
 
+  it("routes huggingface.co to the Hugging Face connector", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify([]), { status: 200 })));
+    const result = await apiConnector({
+      ...base,
+      url: "https://huggingface.co/api/models?sort=trendingScore",
+    });
+    // Reached the HF connector (empty-but-valid result, no router-level warning).
+    expect(result.items).toEqual([]);
+    expect(result.warnings.every((w) => !/no api connector/i.test(w))).toBe(true);
+  });
+
   it("warns for a host with no connector yet", async () => {
-    const result = await apiConnector({ ...base, url: "https://huggingface.co/api/models" });
+    const result = await apiConnector({ ...base, url: "https://example.com/api/models" });
     expect(result.items).toHaveLength(0);
-    expect(result.warnings[0]).toMatch(/no api connector for host 'huggingface\.co'/i);
+    expect(result.warnings[0]).toMatch(/no api connector for host 'example\.com'/i);
   });
 
   it("warns on an invalid URL", async () => {
