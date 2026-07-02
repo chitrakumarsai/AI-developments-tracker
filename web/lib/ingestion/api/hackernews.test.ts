@@ -13,7 +13,7 @@ const source: SourceRef = {
   id: "hn-ai",
   name: "Hacker News — AI stories",
   category: "Social / Discussion",
-  url: "https://hn.algolia.com/api/v1/search?query=AI&tags=story&numericFilters=points>=100&hitsPerPage=50",
+  url: "https://hn.algolia.com/api/v1/search?query=AI&tags=story&hitsPerPage=50",
   tags: ["hackernews", "discussion"],
 };
 
@@ -40,6 +40,22 @@ describe("parseHnSearch", () => {
     expect(result.items[0].summary).toMatch(/210 comments/);
     expect(result.items[0].author).toBe("researcher");
     expect(result.items[0].publishedAt).toBe("2026-06-28T12:00:00.000Z");
+  });
+
+  it("drops below-threshold (low-score) stories without warning", () => {
+    // HN's Algolia index can't filter on points, so the high-score gate lives
+    // here. Low-score hits are intentional exclusions, not data errors.
+    const lowScore = {
+      hits: [
+        { objectID: "1", title: "Popular AI story", url: "https://example.com/a", points: 250 },
+        { objectID: "2", title: "Niche low-score post", url: "https://example.com/b", points: 12 },
+        { objectID: "3", title: "No points field", url: "https://example.com/c" },
+      ],
+    };
+    const result = parseHnSearch(lowScore, source);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].url).toBe("https://example.com/a");
+    expect(result.warnings).toHaveLength(0);
   });
 });
 

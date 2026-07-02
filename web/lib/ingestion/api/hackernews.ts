@@ -11,9 +11,17 @@ import { FETCH_TIMEOUT_MS, USER_AGENT, unsafeUrlReason } from "../net";
  *
  * Link-first rule: use the story's external `url`; for text posts (Ask/Show HN)
  * with no url, fall back to the HN discussion page for that objectID.
+ *
+ * High-score gate: HN's Algolia index only allows `numericFilters` on
+ * `created_at_i` — filtering by `points`/`num_comments` returns HTTP 400
+ * ("attribute not specified in numericAttributesForFiltering"). So the
+ * "high-score" threshold is enforced here in the connector, not in the query.
+ * The default relevance ranking is already points-weighted, so this mostly
+ * guards niche queries whose top matches are low-score.
  */
 
 const MAX_ITEMS = 50;
+const MIN_POINTS = 100;
 const HN_ITEM_BASE = "https://news.ycombinator.com/item?id=";
 
 type HnHit = {
@@ -34,6 +42,11 @@ export function parseHnSearch(json: HnSearchResponse, source: SourceRef): Ingest
   const items: NormalizedItem[] = [];
 
   for (const hit of (json.hits ?? []).slice(0, MAX_ITEMS)) {
+    // High-score gate (see file header): intentional selection, not a data
+    // problem, so filtered-out low-score stories are dropped without a warning.
+    const points = typeof hit.points === "number" ? hit.points : 0;
+    if (points < MIN_POINTS) continue;
+
     const title = sanitizeText(hit.title);
     if (!title) {
       warnings.push(`Skipped HN story with missing title (id: ${hit.objectID || "none"}).`);

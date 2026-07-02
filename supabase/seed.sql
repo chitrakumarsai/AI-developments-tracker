@@ -109,13 +109,14 @@ values
     'Trending models by HF trendingScore. Link-first to the model page.'
   ),
   -- Social / Discussion — AI-filtered high-score Hacker News stories via the
-  -- Algolia HN Search API (1.2 slice 5). ingestion_type='api', keyless. Query +
-  -- points threshold are catalog-tunable via sources.url. Text posts fall back
-  -- to the HN discussion link.
+  -- Algolia HN Search API (1.2 slice 5). ingestion_type='api', keyless. Query is
+  -- catalog-tunable via sources.url; the high-score threshold is enforced in the
+  -- connector (HN's Algolia index rejects numericFilters on points — only
+  -- created_at_i is filterable). Text posts fall back to the HN discussion link.
   (
     'Hacker News — AI stories',
     'Social / Discussion',
-    'https://hn.algolia.com/api/v1/search?query=AI&tags=story&numericFilters=points>=100&hitsPerPage=50',
+    'https://hn.algolia.com/api/v1/search?query=AI&tags=story&hitsPerPage=50',
     'api', 'active', 7,
     array['hackernews', 'discussion', 'ai'],
     'High-score HN stories matching "AI". Link-first to the story or HN thread.'
@@ -123,7 +124,7 @@ values
   (
     'Hacker News — LLM stories',
     'Social / Discussion',
-    'https://hn.algolia.com/api/v1/search?query=LLM&tags=story&numericFilters=points>=100&hitsPerPage=50',
+    'https://hn.algolia.com/api/v1/search?query=LLM&tags=story&hitsPerPage=50',
     'api', 'active', 7,
     array['hackernews', 'discussion', 'llm'],
     'High-score HN stories matching "LLM". Widens AI coverage alongside the AI query.'
