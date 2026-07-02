@@ -1,6 +1,7 @@
 import type { Connector } from "../types";
 import { githubConnector } from "./github";
 import { huggingfaceConnector } from "./huggingface";
+import { hackernewsConnector } from "./hackernews";
 
 /**
  * API host router — dispatches `ingestion_type='api'` sources to the right
@@ -11,6 +12,7 @@ import { huggingfaceConnector } from "./huggingface";
 const HOST_CONNECTORS: Array<{ match: (host: string) => boolean; connector: Connector }> = [
   { match: (host) => host === "api.github.com", connector: githubConnector },
   { match: (host) => host === "huggingface.co", connector: huggingfaceConnector },
+  { match: (host) => host === "hn.algolia.com", connector: hackernewsConnector },
 ];
 
 export const apiConnector: Connector = async (source) => {

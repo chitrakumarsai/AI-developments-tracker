@@ -1,0 +1,101 @@
+import type { Connector, IngestionResult, NormalizedItem, SourceRef } from "../types";
+import { sanitizeText, sanitizeUrl } from "../sanitize";
+import { FETCH_TIMEOUT_MS, USER_AGENT, unsafeUrlReason } from "../net";
+
+/**
+ * Hacker News connector — AI-filtered high-score stories via the Algolia HN
+ * Search API, link-first (CLAUDE.md §7). Keyless (no token). Follows the house
+ * connector pattern (see github.ts/huggingface.ts): pure mapper split from I/O,
+ * sanitizes untrusted fields, warns-not-throws. Registered for host
+ * hn.algolia.com via the api router.
+ *
+ * Link-first rule: use the story's external `url`; for text posts (Ask/Show HN)
+ * with no url, fall back to the HN discussion page for that objectID.
+ */
+
+const MAX_ITEMS = 50;
+const HN_ITEM_BASE = "https://news.ycombinator.com/item?id=";
+
+type HnHit = {
+  objectID?: string;
+  title?: string;
+  url?: string | null;
+  author?: string;
+  points?: number;
+  num_comments?: number;
+  created_at?: string;
+};
+
+type HnSearchResponse = { hits?: HnHit[] };
+
+/** Pure mapping — network-free, fixture-testable. */
+export function parseHnSearch(json: HnSearchResponse, source: SourceRef): IngestionResult {
+  const warnings: string[] = [];
+  const items: NormalizedItem[] = [];
+
+  for (const hit of (json.hits ?? []).slice(0, MAX_ITEMS)) {
+    const title = sanitizeText(hit.title);
+    if (!title) {
+      warnings.push(`Skipped HN story with missing title (id: ${hit.objectID || "none"}).`);
+      continue;
+    }
+    const external = sanitizeUrl(hit.url);
+    const fallback = hit.objectID ? sanitizeUrl(`${HN_ITEM_BASE}${hit.objectID}`) : "";
+    const url = external || fallback;
+    if (!url) {
+      warnings.push(`Skipped HN story with no usable url (title: ${title}).`);
+      continue;
+    }
+    const summaryParts = [
+      typeof hit.points === "number" ? `${hit.points} points` : null,
+      typeof hit.num_comments === "number" ? `${hit.num_comments} comments` : null,
+    ].filter(Boolean);
+    items.push({
+      title,
+      url,
+      category: source.category,
+      summary: summaryParts.length ? summaryParts.join(" · ") : undefined,
+      author: sanitizeText(hit.author) || undefined,
+      publishedAt: hit.created_at,
+      tags: source.tags,
+    });
+  }
+
+  return { sourceId: source.id, items, warnings };
+}
+
+export const hackernewsConnector: Connector = async (source) => {
+  const unsafeReason = unsafeUrlReason(source.url);
+  if (unsafeReason) {
+    return {
+      sourceId: source.id,
+      items: [],
+      warnings: [`Refusing to fetch ${source.name}: ${unsafeReason}.`],
+    };
+  }
+
+  const warnings: string[] = [];
+  const headers: Record<string, string> = {
+    "user-agent": USER_AGENT,
+    accept: "application/json",
+  };
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(source.url, { signal: controller.signal, headers });
+    if (!response.ok) {
+      warnings.push(`Fetch failed for ${source.name}: HTTP ${response.status}.`);
+      return { sourceId: source.id, items: [], warnings };
+    }
+    const json = (await response.json()) as HnSearchResponse;
+    const parsed = parseHnSearch(json, source);
+    return { ...parsed, warnings: [...warnings, ...parsed.warnings] };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown fetch error";
+    warnings.push(`Fetch error for ${source.name}: ${message}.`);
+    return { sourceId: source.id, items: [], warnings };
+  } finally {
+    clearTimeout(timeout);
+  }
+};
