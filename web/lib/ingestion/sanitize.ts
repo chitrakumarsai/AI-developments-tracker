@@ -49,10 +49,15 @@ function decodeEntity(match: string, body: string): string {
 
 /**
  * Strip HTML, decode entities, collapse whitespace, and trim.
- * Returns an empty string for null/undefined/empty input.
+ * Returns an empty string for null/undefined/empty/non-string input.
+ *
+ * Accepts `unknown` on purpose: feeds are untrusted (§12.7) and some deliver
+ * non-string fields (e.g. Atom `<author>` objects), which must never crash the
+ * connector. Callers needing structured values extract them first (see
+ * rss.ts `readAuthor`).
  */
-export function sanitizeText(raw: string | null | undefined): string {
-  if (!raw) return "";
+export function sanitizeText(raw: unknown): string {
+  if (typeof raw !== "string" || !raw) return "";
   const withoutTags = raw.replace(HTML_TAG, " ");
   const decoded = withoutTags.replace(
     /&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g,

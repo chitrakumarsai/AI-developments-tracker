@@ -24,11 +24,39 @@ type RssEntry = {
   link?: string;
   content?: string;
   contentSnippet?: string;
-  creator?: string;
+  // Feeds vary: dc:creator is a string, but Atom <author> parses to an object
+  // like { name: ["Keyword Team"] }. Kept as unknown and flattened in readAuthor.
+  creator?: unknown;
+  author?: unknown;
   isoDate?: string;
 };
 
 const parser = new Parser<unknown, RssEntry>();
+
+/**
+ * Flatten an rss-parser author value to a plain string. Handles dc:creator
+ * (string) and Atom <author> objects ({ name: string | string[] }); returns ""
+ * for anything else so the connector never crashes on an odd feed shape.
+ */
+export function readAuthor(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") {
+    const name = (value as { name?: unknown }).name;
+    if (typeof name === "string") return name;
+    if (Array.isArray(name) && typeof name[0] === "string") return name[0];
+  }
+  return "";
+}
+
+/**
+ * Escape bare `&` that are not part of a valid XML entity. Some real feeds
+ * (e.g. Apple ML Research) ship unescaped ampersands, which make the strict XML
+ * parser throw "Invalid character in entity name" and drop the whole feed.
+ * Leaves valid entities (&amp; &lt; &#233; &#x2014; …) untouched.
+ */
+export function repairEntities(xml: string): string {
+  return xml.replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, "&amp;");
+}
 
 /**
  * Parse an RSS payload into normalized, sanitized items. Pure and
@@ -39,7 +67,7 @@ export async function parseRssFeed(
   source: SourceRef,
 ): Promise<IngestionResult> {
   const warnings: string[] = [];
-  const feed = await parser.parseString(xml);
+  const feed = await parser.parseString(repairEntities(xml));
   const items: NormalizedItem[] = [];
 
   for (const entry of feed.items.slice(0, MAX_ITEMS)) {
@@ -50,7 +78,7 @@ export async function parseRssFeed(
       continue;
     }
 
-    const author = sanitizeText(entry.creator);
+    const author = sanitizeText(readAuthor(entry.creator ?? entry.author));
     items.push({
       title,
       url,

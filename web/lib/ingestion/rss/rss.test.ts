@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { rssConnector, parseRssFeed } from "./rss";
+import { rssConnector, parseRssFeed, readAuthor, repairEntities } from "./rss";
 import type { SourceRef } from "../types";
 
 function fixture(name: string): string {
@@ -14,6 +14,51 @@ function fixture(name: string): string {
 
 const ARXIV_FIXTURE = fixture("arxiv-cs-lg.xml");
 const BLOG_FIXTURE = fixture("blog-sample.xml");
+
+describe("repairEntities", () => {
+  it("escapes a bare ampersand that isn't a valid entity", () => {
+    expect(repairEntities("R&D at Apple")).toBe("R&amp;D at Apple");
+  });
+
+  it("leaves valid named and numeric entities untouched", () => {
+    expect(repairEntities("Tom &amp; Jerry &#233; &#x2014; &lt;3")).toBe(
+      "Tom &amp; Jerry &#233; &#x2014; &lt;3",
+    );
+  });
+
+  it("lets a feed with a bare ampersand parse instead of throwing", async () => {
+    const xml =
+      '<?xml version="1.0"?><rss version="2.0"><channel><title>T</title>' +
+      "<item><title>Research & Development</title><link>https://example.com/a</link></item>" +
+      "</channel></rss>";
+    const result = await parseRssFeed(xml, {
+      id: "s",
+      name: "Bare-amp feed",
+      category: "Companies & Labs",
+      url: "https://example.com/feed",
+      tags: ["blog"],
+    });
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].title).toBe("Research & Development");
+  });
+});
+
+describe("readAuthor", () => {
+  it("passes through a plain string (dc:creator)", () => {
+    expect(readAuthor("Jane Doe")).toBe("Jane Doe");
+  });
+
+  it("extracts name from an Atom <author> object (string or array)", () => {
+    expect(readAuthor({ name: ["Keyword Team"] })).toBe("Keyword Team");
+    expect(readAuthor({ name: "Solo Author" })).toBe("Solo Author");
+  });
+
+  it("returns '' for unusable shapes instead of crashing", () => {
+    expect(readAuthor(undefined)).toBe("");
+    expect(readAuthor({ foo: "bar" })).toBe("");
+    expect(readAuthor(42)).toBe("");
+  });
+});
 
 const arxivSource: SourceRef = {
   id: "src-1",
