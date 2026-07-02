@@ -86,6 +86,8 @@ export function parseHfModels(json: HfModel[], source: SourceRef): IngestionResu
       typeof model.likes === "number" ? `${model.likes} likes` : null,
       typeof model.downloads === "number" ? `${model.downloads} downloads` : null,
     ].filter(Boolean);
+    const likes =
+      typeof model.likes === "number" && model.likes >= 0 ? model.likes : undefined;
     items.push({
       title,
       url,
@@ -94,6 +96,7 @@ export function parseHfModels(json: HfModel[], source: SourceRef): IngestionResu
       author: sanitizeText(id.split("/")[0]) || undefined,
       publishedAt: model.createdAt,
       tags: source.tags,
+      metric: likes,
     });
   }
 

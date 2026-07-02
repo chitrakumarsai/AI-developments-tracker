@@ -14,24 +14,30 @@ export const MAX_FEED_LIMIT = 100;
 export const INITIAL_FEED_LIMIT = 20;
 export const FEED_PAGE_STEP = 20;
 
+/** Feed sort order. `recent` = newest first; `metric` = most stars/likes first. */
+export type FeedSort = "recent" | "metric";
+
 /**
- * Recent items for the feed, newest first. Optionally filtered to a single
- * `items.category` (used by the section tabs); pass null/undefined for all
- * categories. Phase 1 sort is recency only; relevance-aware ranking arrives in
- * subphase 1.4.
+ * Recent items for the feed. Optionally filtered to a single `items.category`
+ * (used by the section tabs); pass null/undefined for all categories. `sort`
+ * chooses recency (default) or popularity — the "Top-starred" toggle on the
+ * Repos/Models sections. Relevance-aware ranking arrives in subphase 1.4.
  */
 export async function getRecentItems(
   limit: number = DEFAULT_FEED_LIMIT,
   category?: string | null,
+  sort: FeedSort = "recent",
 ): Promise<ItemRow[]> {
   const client = getServerClient();
   let query = client.from("items").select("*");
   if (category) {
     query = query.eq("category", category);
   }
-  const { data, error } = await query
-    .order("published_at", { ascending: false, nullsFirst: false })
-    .limit(limit);
+  query =
+    sort === "metric"
+      ? query.order("metric", { ascending: false, nullsFirst: false })
+      : query.order("published_at", { ascending: false, nullsFirst: false });
+  const { data, error } = await query.limit(limit);
 
   if (error) {
     throw new Error(`Failed to load items: ${error.message}`);

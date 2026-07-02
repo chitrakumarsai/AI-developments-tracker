@@ -18,6 +18,7 @@ type GithubRepo = {
   html_url?: string;
   description?: string | null;
   pushed_at?: string;
+  stargazers_count?: number;
   owner?: { login?: string };
 };
 
@@ -39,6 +40,10 @@ export function parseGithubSearch(
       continue;
     }
     const author = sanitizeText(repo.owner?.login);
+    const stars =
+      typeof repo.stargazers_count === "number" && repo.stargazers_count >= 0
+        ? repo.stargazers_count
+        : undefined;
     items.push({
       title,
       url,
@@ -47,6 +52,7 @@ export function parseGithubSearch(
       author: author || undefined,
       publishedAt: repo.pushed_at,
       tags: source.tags,
+      metric: stars,
     });
   }
 

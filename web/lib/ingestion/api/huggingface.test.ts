@@ -66,6 +66,12 @@ describe("parseHfModels", () => {
     expect(result.items[0].summary).toMatch(/text-generation/);
     expect(result.items[0].category).toBe("LLM & Other Models");
   });
+
+  it("maps likes onto the popularity metric", () => {
+    const result = parseHfModels(MODELS_FIXTURE, modelsSource);
+    expect(result.items[0].metric).toBe(4200);
+    expect(result.items[1].metric).toBe(980);
+  });
 });
 
 describe("huggingfaceConnector", () => {

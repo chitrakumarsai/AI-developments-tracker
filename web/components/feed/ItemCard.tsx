@@ -32,6 +32,13 @@ function formatAbsolute(iso: string | null): string {
   return ABSOLUTE_DATE.format(then);
 }
 
+const METRIC_NUMBER = new Intl.NumberFormat("en-US");
+
+/** GitHub repos count stars; Hugging Face models count likes — label the metric per category. */
+function metricLabel(category: string): string {
+  return category === "GitHub Repositories" ? "stars" : "likes";
+}
+
 type ItemCardProps = {
   item: ItemRow;
 };
@@ -44,9 +51,22 @@ type ItemCardProps = {
 export function ItemCard({ item }: ItemCardProps) {
   return (
     <article className="border-b border-rule py-5">
-      <p className="text-xs uppercase tracking-[0.18em] text-accent">
-        {item.category}
-      </p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs uppercase tracking-[0.18em] text-accent">
+          {item.category}
+        </p>
+        {item.metric != null ? (
+          <span
+            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rule/50 px-2 py-0.5 text-xs font-medium text-muted"
+            aria-label={`${METRIC_NUMBER.format(item.metric)} ${metricLabel(item.category)}`}
+          >
+            <span aria-hidden="true" className="text-accent">
+              ★
+            </span>
+            {METRIC_NUMBER.format(item.metric)}
+          </span>
+        ) : null}
+      </div>
 
       <h2 className="mt-2 font-display text-lg leading-snug text-ink">
         <a

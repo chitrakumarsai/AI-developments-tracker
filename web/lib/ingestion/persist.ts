@@ -30,6 +30,7 @@ export async function persistItems(
     summary: item.summary ?? null,
     tags: item.tags ?? [],
     published_at: item.publishedAt ?? null,
+    metric: item.metric ?? null,
   }));
 
   let added = 0;
@@ -47,6 +48,23 @@ export async function persistItems(
       };
     }
     added = data?.length ?? 0;
+
+    // Refresh the popularity metric on existing rows too: `ignoreDuplicates`
+    // skips them on insert, but stars/likes change over time and should stay
+    // current (this also backfills rows ingested before the metric column
+    // existed). Keyed on the unique `url`; runs only for metric-bearing items.
+    const metricRows = result.items.filter((item) => typeof item.metric === "number");
+    if (metricRows.length > 0) {
+      const updates = await Promise.all(
+        metricRows.map((item) =>
+          client.from("items").update({ metric: item.metric }).eq("url", item.url),
+        ),
+      );
+      const failed = updates.filter((u) => u.error).length;
+      if (failed > 0) {
+        warnings.push(`Could not refresh metric on ${failed} item(s).`);
+      }
+    }
   }
 
   const { error: stampError } = await client

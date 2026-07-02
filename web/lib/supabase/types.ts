@@ -22,6 +22,8 @@ export type ItemRow = {
   read_state: boolean;
   published_at: string | null;
   fetched_at: string;
+  /** Popularity metric (GitHub stars, HF likes); null when the source has none. */
+  metric: number | null;
 };
 
 export type SourceRow = {

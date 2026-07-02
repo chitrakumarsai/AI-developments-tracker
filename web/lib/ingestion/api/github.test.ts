@@ -38,6 +38,12 @@ describe("parseGithubSearch", () => {
     expect(result.items[0].category).toBe("GitHub Repositories");
     expect(result.items[0].tags).toEqual(["github", "repos"]);
   });
+
+  it("maps stargazers_count onto the popularity metric", () => {
+    const result = parseGithubSearch(FIXTURE, source);
+    expect(result.items[0].metric).toBe(12000);
+    expect(result.items[1].metric).toBe(8200);
+  });
 });
 
 describe("buildGithubSearchUrl", () => {

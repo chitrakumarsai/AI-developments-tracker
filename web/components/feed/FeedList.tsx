@@ -5,6 +5,7 @@ import {
   FEED_PAGE_STEP,
   INITIAL_FEED_LIMIT,
   MAX_FEED_LIMIT,
+  type FeedSort,
 } from "@/lib/feed/queries";
 import type { ItemRow } from "@/lib/supabase/types";
 import { ItemCard } from "./ItemCard";
@@ -29,12 +30,15 @@ type FeedListProps = {
   sectionSlug?: string;
   /** How many items to show (finite-first). */
   limit?: number;
+  /** Sort order — recency (default) or popularity. */
+  sort?: FeedSort;
 };
 
-/** Build the Show more href, preserving the active section. */
-function moreHref(sectionSlug: string, nextLimit: number): string {
+/** Build the Show more href, preserving the active section and sort. */
+function moreHref(sectionSlug: string, nextLimit: number, sort: FeedSort): string {
   const params = new URLSearchParams();
   if (sectionSlug && sectionSlug !== "all") params.set("section", sectionSlug);
+  if (sort === "metric") params.set("sort", "stars");
   params.set("show", String(nextLimit));
   return `/?${params.toString()}`;
 }
@@ -49,10 +53,11 @@ export async function FeedList({
   sectionLabel,
   sectionSlug = "all",
   limit = INITIAL_FEED_LIMIT,
+  sort = "recent",
 }: FeedListProps = {}) {
   let items: ItemRow[] = [];
   try {
-    items = await getRecentItems(limit, category);
+    items = await getRecentItems(limit, category, sort);
   } catch {
     return (
       <Notice
@@ -90,7 +95,7 @@ export async function FeedList({
         <span>Showing {items.length}</span>
         {canShowMore ? (
           <Link
-            href={moreHref(sectionSlug, nextLimit)}
+            href={moreHref(sectionSlug, nextLimit, sort)}
             scroll={false}
             className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-rule px-4 font-medium text-muted transition-colors hover:border-accent hover:text-accent"
           >

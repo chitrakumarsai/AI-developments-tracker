@@ -30,6 +30,8 @@ export type NormalizedItem = {
   summary?: string;
   tags?: readonly string[];
   publishedAt?: string; // ISO 8601
+  /** Popularity number (GitHub stars, HF likes). Omitted when the source has none. */
+  metric?: number;
 };
 
 /** Result of one ingestion run for a single source. */

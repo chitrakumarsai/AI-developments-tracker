@@ -7,14 +7,19 @@ import { categoryForSlug } from "@/lib/feed/categories";
 const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(MAX_FEED_LIMIT).default(DEFAULT_FEED_LIMIT),
   section: z.string().optional(),
+  sort: z.enum(["recent", "stars"]).default("recent"),
 });
 
-/** GET /api/items — recent feed items, newest first. `?section=<slug>` filters. */
+/**
+ * GET /api/items — recent feed items. `?section=<slug>` filters by category;
+ * `?sort=stars` orders by popularity metric (stars/likes) instead of recency.
+ */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const parsed = querySchema.safeParse({
     limit: searchParams.get("limit") ?? undefined,
     section: searchParams.get("section") ?? undefined,
+    sort: searchParams.get("sort") ?? undefined,
   });
   if (!parsed.success) {
     return NextResponse.json(
@@ -25,7 +30,8 @@ export async function GET(request: Request) {
 
   try {
     const category = categoryForSlug(parsed.data.section);
-    const items = await getRecentItems(parsed.data.limit, category);
+    const sort = parsed.data.sort === "stars" ? "metric" : "recent";
+    const items = await getRecentItems(parsed.data.limit, category, sort);
     return NextResponse.json({
       success: true,
       data: items,
