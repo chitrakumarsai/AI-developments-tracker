@@ -24,6 +24,8 @@ export type ItemRow = {
   fetched_at: string;
   /** Popularity metric (GitHub stars, HF likes); null when the source has none. */
   metric: number | null;
+  /** Embedded source identity (from a join); used to label the item's platform. */
+  source?: { name: string | null } | null;
 };
 
 export type SourceRow = {

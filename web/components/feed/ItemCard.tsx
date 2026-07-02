@@ -1,4 +1,5 @@
 import type { ItemRow } from "@/lib/supabase/types";
+import { platformForItem } from "@/lib/feed/platform";
 import { Abstract } from "./Abstract";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -49,11 +50,15 @@ type ItemCardProps = {
  * the title and "Read" both open the original at the source.
  */
 export function ItemCard({ item }: ItemCardProps) {
+  const platform = platformForItem(item);
   return (
     <article className="border-b border-rule py-5">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs uppercase tracking-[0.18em] text-accent">
-          {item.category}
+        <p className="flex min-w-0 items-center gap-2 text-xs uppercase tracking-[0.18em] text-accent">
+          <span className="inline-flex shrink-0 items-center rounded-[var(--radius-sm)] bg-accent/10 px-1.5 py-0.5 font-semibold not-italic tracking-normal text-accent">
+            {platform.label}
+          </span>
+          <span className="truncate text-faint">{item.category}</span>
         </p>
         {item.metric != null ? (
           <span

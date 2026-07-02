@@ -29,7 +29,9 @@ export async function getRecentItems(
   sort: FeedSort = "recent",
 ): Promise<ItemRow[]> {
   const client = getServerClient();
-  let query = client.from("items").select("*");
+  // Embed the source name so the card can label the item's platform (Hacker
+  // News, Reddit, GitHub, …) accurately — the source, not the outbound link.
+  let query = client.from("items").select("*, source:sources(name)");
   if (category) {
     query = query.eq("category", category);
   }
