@@ -1,11 +1,13 @@
 import Link from "next/link";
 
 import {
-  getRecentItems,
+  getFeedItems,
+  DEFAULT_WINDOW,
   FEED_PAGE_STEP,
   INITIAL_FEED_LIMIT,
   MAX_FEED_LIMIT,
   type FeedSort,
+  type FeedWindow,
 } from "@/lib/feed/queries";
 import type { ItemRow } from "@/lib/supabase/types";
 import { ItemCard } from "./ItemCard";
@@ -30,15 +32,24 @@ type FeedListProps = {
   sectionSlug?: string;
   /** How many items to show (finite-first). */
   limit?: number;
-  /** Sort order — recency (default) or popularity. */
+  /** Sort order — relevance (default), recency, or popularity. */
   sort?: FeedSort;
+  /** Recency window bounding + shaping the feed. */
+  window?: FeedWindow;
 };
 
-/** Build the Show more href, preserving the active section and sort. */
-function moreHref(sectionSlug: string, nextLimit: number, sort: FeedSort): string {
+/** Build the Show more href, preserving section, sort, and window. */
+function moreHref(
+  sectionSlug: string,
+  nextLimit: number,
+  sort: FeedSort,
+  window: FeedWindow,
+): string {
   const params = new URLSearchParams();
   if (sectionSlug && sectionSlug !== "all") params.set("section", sectionSlug);
   if (sort === "metric") params.set("sort", "stars");
+  else if (sort === "recent") params.set("sort", "recent");
+  if (window !== DEFAULT_WINDOW) params.set("window", window);
   params.set("show", String(nextLimit));
   return `/?${params.toString()}`;
 }
@@ -53,11 +64,12 @@ export async function FeedList({
   sectionLabel,
   sectionSlug = "all",
   limit = INITIAL_FEED_LIMIT,
-  sort = "recent",
+  sort = "relevant",
+  window = DEFAULT_WINDOW,
 }: FeedListProps = {}) {
   let items: ItemRow[] = [];
   try {
-    items = await getRecentItems(limit, category, sort);
+    items = await getFeedItems({ category, sort, window, limit });
   } catch {
     return (
       <Notice
@@ -95,7 +107,7 @@ export async function FeedList({
         <span>Showing {items.length}</span>
         {canShowMore ? (
           <Link
-            href={moreHref(sectionSlug, nextLimit, sort)}
+            href={moreHref(sectionSlug, nextLimit, sort, window)}
             scroll={false}
             className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-rule px-4 font-medium text-muted transition-colors hover:border-accent hover:text-accent"
           >

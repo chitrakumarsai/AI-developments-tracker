@@ -3,10 +3,35 @@ import Link from "next/link";
 
 import { FeedList } from "@/components/feed/FeedList";
 import { FEED_SECTIONS, sectionForSlug } from "@/lib/feed/categories";
-import { INITIAL_FEED_LIMIT, MAX_FEED_LIMIT, type FeedSort } from "@/lib/feed/queries";
+import {
+  INITIAL_FEED_LIMIT,
+  MAX_FEED_LIMIT,
+  DEFAULT_WINDOW,
+  type FeedSort,
+  type FeedWindow,
+} from "@/lib/feed/queries";
 
 /** Sections whose items carry a popularity metric, so a Top-starred sort makes sense. */
 const SORTABLE_SLUGS = new Set(["repos", "models"]);
+
+const WINDOW_OPTIONS: ReadonlyArray<{ key: FeedWindow; label: string }> = [
+  { key: "today", label: "Today" },
+  { key: "week", label: "Week" },
+  { key: "month", label: "Month" },
+  { key: "all", label: "All" },
+];
+const WINDOW_KEYS: ReadonlySet<string> = new Set(WINDOW_OPTIONS.map((w) => w.key));
+
+/** Build a feed URL preserving section, sort, and window (omitting defaults). */
+function feedHref(section: string, sort: FeedSort, window: FeedWindow): string {
+  const params = new URLSearchParams();
+  if (section && section !== "all") params.set("section", section);
+  if (sort === "metric") params.set("sort", "stars");
+  else if (sort === "recent") params.set("sort", "recent");
+  if (window !== DEFAULT_WINDOW) params.set("window", window);
+  const qs = params.toString();
+  return qs ? `/?${qs}` : "/";
+}
 
 // The feed reflects live database state, so render per-request (not at build).
 export const dynamic = "force-dynamic";
@@ -22,16 +47,41 @@ function FeedFallback() {
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ section?: string; show?: string; sort?: string }>;
+  searchParams: Promise<{
+    section?: string;
+    show?: string;
+    sort?: string;
+    window?: string;
+  }>;
 }) {
-  const { section: sectionParam, show: showParam, sort: sortParam } = await searchParams;
+  const {
+    section: sectionParam,
+    show: showParam,
+    sort: sortParam,
+    window: windowParam,
+  } = await searchParams;
   const active = sectionForSlug(sectionParam);
   const requested = Number.parseInt(showParam ?? "", 10);
   const limit = Number.isNaN(requested)
     ? INITIAL_FEED_LIMIT
     : Math.min(Math.max(requested, INITIAL_FEED_LIMIT), MAX_FEED_LIMIT);
   const canSort = SORTABLE_SLUGS.has(active.slug);
-  const sort: FeedSort = canSort && sortParam === "stars" ? "metric" : "recent";
+
+  // Default order is Relevant (recency + popularity). Newest is a universal
+  // override; Top-starred only where a popularity metric exists.
+  let sort: FeedSort = "relevant";
+  if (sortParam === "recent") sort = "recent";
+  else if (sortParam === "stars" && canSort) sort = "metric";
+
+  const window: FeedWindow = WINDOW_KEYS.has(windowParam ?? "")
+    ? (windowParam as FeedWindow)
+    : DEFAULT_WINDOW;
+
+  const sortOptions: ReadonlyArray<{ key: FeedSort; label: string }> = [
+    { key: "relevant", label: "Relevant" },
+    { key: "recent", label: "Newest" },
+    ...(canSort ? [{ key: "metric" as const, label: "Top-starred" }] : []),
+  ];
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-[var(--space-gutter)]">
@@ -51,7 +101,7 @@ export default async function Home({
               return (
                 <li key={section.slug}>
                   <Link
-                    href={section.slug === "all" ? "/" : `/?section=${section.slug}`}
+                    href={feedHref(section.slug, "relevant", window)}
                     aria-current={isActive ? "page" : undefined}
                     className={`inline-block rounded-[var(--radius-sm)] px-3 py-1.5 text-sm transition-colors ${
                       isActive
@@ -70,26 +120,17 @@ export default async function Home({
 
       <main className="flex flex-1 flex-col">
         <section aria-label="Feed" className="flex flex-1 flex-col">
-          {canSort ? (
-            <div className="flex items-center justify-end gap-1 pt-4 text-xs">
-              <span className="mr-1 text-faint">Sort</span>
-              {(
-                [
-                  { key: "recent", label: "Newest", href: `/?section=${active.slug}` },
-                  {
-                    key: "metric",
-                    label: "Top-starred",
-                    href: `/?section=${active.slug}&sort=stars`,
-                  },
-                ] as const
-              ).map((option) => {
-                const isActive = sort === option.key;
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-4 text-xs">
+            <div className="flex items-center gap-1" aria-label="Time window">
+              <span className="mr-1 text-faint">Window</span>
+              {WINDOW_OPTIONS.map((option) => {
+                const isActive = window === option.key;
                 return (
                   <Link
                     key={option.key}
-                    href={option.href}
+                    href={feedHref(active.slug, sort, option.key)}
                     aria-current={isActive ? "true" : undefined}
-                    className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] px-3 font-medium transition-colors ${
+                    className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] px-2.5 font-medium transition-colors ${
                       isActive
                         ? "bg-ink text-surface"
                         : "text-muted hover:text-ink hover:bg-rule/40"
@@ -100,14 +141,38 @@ export default async function Home({
                 );
               })}
             </div>
-          ) : null}
-          <Suspense key={`${active.slug}:${limit}:${sort}`} fallback={<FeedFallback />}>
+            <div className="flex items-center gap-1" aria-label="Sort order">
+              <span className="mr-1 text-faint">Sort</span>
+              {sortOptions.map((option) => {
+                const isActive = sort === option.key;
+                return (
+                  <Link
+                    key={option.key}
+                    href={feedHref(active.slug, option.key, window)}
+                    aria-current={isActive ? "true" : undefined}
+                    className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] px-2.5 font-medium transition-colors ${
+                      isActive
+                        ? "bg-ink text-surface"
+                        : "text-muted hover:text-ink hover:bg-rule/40"
+                    }`}
+                  >
+                    {option.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+          <Suspense
+            key={`${active.slug}:${limit}:${sort}:${window}`}
+            fallback={<FeedFallback />}
+          >
             <FeedList
               category={active.category}
               sectionLabel={active.label}
               sectionSlug={active.slug}
               limit={limit}
               sort={sort}
+              window={window}
             />
           </Suspense>
         </section>
