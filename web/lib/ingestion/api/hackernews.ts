@@ -18,10 +18,16 @@ import { FETCH_TIMEOUT_MS, USER_AGENT, unsafeUrlReason } from "../net";
  * "high-score" threshold is enforced here in the connector, not in the query.
  * The default relevance ranking is already points-weighted, so this mostly
  * guards niche queries whose top matches are low-score.
+ *
+ * Recency window (§1.4 Slice B): `created_at_i` IS filterable, so the connector
+ * injects a rolling 30-day lower bound at request time. Points are stored as the
+ * item `metric` so the ranker can normalize HN popularity per source.
  */
 
 const MAX_ITEMS = 50;
 const MIN_POINTS = 100;
+const WINDOW_DAYS = 30;
+const MS_PER_DAY = 86_400_000;
 const HN_ITEM_BASE = "https://news.ycombinator.com/item?id=";
 
 type HnHit = {
@@ -71,14 +77,39 @@ export function parseHnSearch(json: HnSearchResponse, source: SourceRef): Ingest
       author: sanitizeText(hit.author) || undefined,
       publishedAt: hit.created_at,
       tags: source.tags,
+      metric: points,
     });
   }
 
   return { sourceId: source.id, items, warnings };
 }
 
+/**
+ * Build the Algolia request URL from the source's configured query, injecting a
+ * rolling `created_at_i>` lower bound so each run only pulls the last 30 days.
+ * `now` is injectable for deterministic tests.
+ */
+export function buildHnSearchUrl(sourceUrl: string, now: number = Date.now()): string {
+  const url = new URL(sourceUrl);
+  const sinceSeconds = Math.floor((now - WINDOW_DAYS * MS_PER_DAY) / 1000);
+  url.searchParams.set("numericFilters", `created_at_i>${sinceSeconds}`);
+  return url.toString();
+}
+
 export const hackernewsConnector: Connector = async (source) => {
-  const unsafeReason = unsafeUrlReason(source.url);
+  // Guard the URL build too: a malformed source.url must warn, not throw, so one
+  // bad source can't abort a multi-source run (§12.7).
+  let requestUrl: string;
+  try {
+    requestUrl = buildHnSearchUrl(source.url);
+  } catch {
+    return {
+      sourceId: source.id,
+      items: [],
+      warnings: [`Refusing to fetch ${source.name}: invalid source URL.`],
+    };
+  }
+  const unsafeReason = unsafeUrlReason(requestUrl);
   if (unsafeReason) {
     return {
       sourceId: source.id,
@@ -96,7 +127,7 @@ export const hackernewsConnector: Connector = async (source) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(source.url, { signal: controller.signal, headers });
+    const response = await fetch(requestUrl, { signal: controller.signal, headers });
     if (!response.ok) {
       warnings.push(`Fetch failed for ${source.name}: HTTP ${response.status}.`);
       return { sourceId: source.id, items: [], warnings };

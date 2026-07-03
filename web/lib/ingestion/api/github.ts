@@ -19,6 +19,7 @@ type GithubRepo = {
   description?: string | null;
   pushed_at?: string;
   stargazers_count?: number;
+  forks_count?: number;
   owner?: { login?: string };
 };
 
@@ -44,6 +45,10 @@ export function parseGithubSearch(
       typeof repo.stargazers_count === "number" && repo.stargazers_count >= 0
         ? repo.stargazers_count
         : undefined;
+    const forks =
+      typeof repo.forks_count === "number" && repo.forks_count >= 0
+        ? repo.forks_count
+        : undefined;
     items.push({
       title,
       url,
@@ -53,6 +58,7 @@ export function parseGithubSearch(
       publishedAt: repo.pushed_at,
       tags: source.tags,
       metric: stars,
+      forks,
     });
   }
 
@@ -78,7 +84,18 @@ export function buildGithubSearchUrl(sourceUrl: string): string {
 }
 
 export const githubConnector: Connector = async (source) => {
-  const requestUrl = buildGithubSearchUrl(source.url);
+  // Guard the URL build too: a malformed source.url must warn, not throw, so one
+  // bad source can't abort a multi-source run (§12.7).
+  let requestUrl: string;
+  try {
+    requestUrl = buildGithubSearchUrl(source.url);
+  } catch {
+    return {
+      sourceId: source.id,
+      items: [],
+      warnings: [`Refusing to fetch ${source.name}: invalid source URL.`],
+    };
+  }
   const unsafeReason = unsafeUrlReason(requestUrl);
   if (unsafeReason) {
     return {

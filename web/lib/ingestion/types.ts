@@ -32,6 +32,8 @@ export type NormalizedItem = {
   publishedAt?: string; // ISO 8601
   /** Popularity number (GitHub stars, HF likes). Omitted when the source has none. */
   metric?: number;
+  /** GitHub forks — a second, additive popularity signal. Omitted otherwise. */
+  forks?: number;
 };
 
 /** Result of one ingestion run for a single source. */

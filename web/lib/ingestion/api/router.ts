@@ -2,6 +2,8 @@ import type { Connector } from "../types";
 import { githubConnector } from "./github";
 import { huggingfaceConnector } from "./huggingface";
 import { hackernewsConnector } from "./hackernews";
+import { redditConnector } from "./reddit";
+import { arxivConnector } from "./arxiv";
 
 /**
  * API host router — dispatches `ingestion_type='api'` sources to the right
@@ -13,6 +15,11 @@ const HOST_CONNECTORS: Array<{ match: (host: string) => boolean; connector: Conn
   { match: (host) => host === "api.github.com", connector: githubConnector },
   { match: (host) => host === "huggingface.co", connector: huggingfaceConnector },
   { match: (host) => host === "hn.algolia.com", connector: hackernewsConnector },
+  {
+    match: (host) => host === "reddit.com" || host === "www.reddit.com",
+    connector: redditConnector,
+  },
+  { match: (host) => host === "export.arxiv.org", connector: arxivConnector },
 ];
 
 export const apiConnector: Connector = async (source) => {

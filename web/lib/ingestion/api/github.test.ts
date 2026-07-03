@@ -44,6 +44,12 @@ describe("parseGithubSearch", () => {
     expect(result.items[0].metric).toBe(12000);
     expect(result.items[1].metric).toBe(8200);
   });
+
+  it("captures forks_count as a second, additive popularity signal", () => {
+    const result = parseGithubSearch(FIXTURE, source);
+    expect(result.items[0].forks).toBe(1500);
+    expect(result.items[1].forks).toBe(640);
+  });
 });
 
 describe("buildGithubSearchUrl", () => {

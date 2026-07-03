@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { hackernewsConnector, parseHnSearch } from "./hackernews";
+import { buildHnSearchUrl, hackernewsConnector, parseHnSearch } from "./hackernews";
 import type { SourceRef } from "../types";
 
 const FIXTURE = JSON.parse(
@@ -42,6 +42,12 @@ describe("parseHnSearch", () => {
     expect(result.items[0].publishedAt).toBe("2026-06-28T12:00:00.000Z");
   });
 
+  it("stores points as the popularity metric so ranking can normalize it", () => {
+    const result = parseHnSearch(FIXTURE, source);
+    expect(result.items[0].metric).toBe(543);
+    expect(result.items[1].metric).toBe(168);
+  });
+
   it("drops below-threshold (low-score) stories without warning", () => {
     // HN's Algolia index can't filter on points, so the high-score gate lives
     // here. Low-score hits are intentional exclusions, not data errors.
@@ -59,17 +65,38 @@ describe("parseHnSearch", () => {
   });
 });
 
+describe("buildHnSearchUrl", () => {
+  it("injects a rolling 30-day created_at_i lower bound via numericFilters", () => {
+    const now = Date.parse("2026-07-03T00:00:00.000Z");
+    const built = new URL(buildHnSearchUrl(source.url, now));
+    const filter = built.searchParams.get("numericFilters");
+    expect(filter).not.toBeNull();
+    const match = /^created_at_i>(\d+)$/.exec(filter ?? "");
+    expect(match).not.toBeNull();
+    const since = Number(match?.[1]);
+    // 30 days before `now`, in whole seconds.
+    expect(since).toBe(Math.floor((now - 30 * 86_400_000) / 1000));
+  });
+
+  it("preserves the source's existing query params (query, tags)", () => {
+    const built = new URL(buildHnSearchUrl(source.url));
+    expect(built.searchParams.get("query")).toBe("AI");
+    expect(built.searchParams.get("tags")).toBe("story");
+  });
+});
+
 describe("hackernewsConnector", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it("fetches (no auth header — keyless) and parses stories", async () => {
+  it("fetches (no auth header — keyless), applies the window, and parses stories", async () => {
     const fetchSpy = vi.fn(async () => new Response(JSON.stringify(FIXTURE), { status: 200 }));
     vi.stubGlobal("fetch", fetchSpy);
     const result = await hackernewsConnector(source);
     expect(result.items).toHaveLength(2);
     const calls = fetchSpy.mock.calls as unknown as Array<[string, { headers: Record<string, string> }]>;
+    expect(calls[0][0]).toMatch(/numericFilters=created_at_i/);
     expect(calls[0][1].headers.authorization).toBeUndefined();
   });
 
@@ -94,5 +121,14 @@ describe("hackernewsConnector", () => {
     const result = await hackernewsConnector({ ...source, url: "http://127.0.0.1/api/v1/search" });
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(result.warnings.some((w) => /refusing to fetch/i.test(w))).toBe(true);
+  });
+
+  it("warns (no throw) on a malformed source URL that can't be parsed", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const result = await hackernewsConnector({ ...source, url: "not a url" });
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(result.items).toHaveLength(0);
+    expect(result.warnings.some((w) => /invalid source url/i.test(w))).toBe(true);
   });
 });

@@ -1,39 +1,43 @@
 -- AI Chronicles — seed data for local development.
 -- Research Papers: four arXiv category feeds (cs.AI, cs.LG, cs.CL, cs.CV).
 -- Companies & Labs: official lab/company blog RSS feeds (1.2 slice 1).
--- All are ingestion_type='rss', run through the generic RSS connector.
+-- Most sources are ingestion_type='rss' through the generic RSS connector;
+-- arXiv/GitHub/HF/HN/Reddit are ingestion_type='api' (host-routed connectors).
 
 insert into sources (name, category, url, ingestion_type, status, priority, tags, notes)
 values
+  -- arXiv — bounded API connector (1.4 slice B). Migrated RSS→api: the API lets
+  -- us cap to the most-recent 50 per category (submittedDate desc) so a busy
+  -- category can't flood the feed. Recency-only (no popularity metric).
   (
     'arXiv — cs.AI',
     'Research Papers',
-    'https://rss.arxiv.org/rss/cs.AI',
-    'rss', 'active', 10,
+    'https://export.arxiv.org/api/query?search_query=cat:cs.AI',
+    'api', 'active', 10,
     array['ai', 'papers'],
     'arXiv Artificial Intelligence. First connector / pipeline template for Phase 1.'
   ),
   (
     'arXiv — cs.LG',
     'Research Papers',
-    'https://rss.arxiv.org/rss/cs.LG',
-    'rss', 'active', 10,
+    'https://export.arxiv.org/api/query?search_query=cat:cs.LG',
+    'api', 'active', 10,
     array['ml', 'papers'],
     'arXiv Machine Learning — highest-volume core ML feed.'
   ),
   (
     'arXiv — cs.CL',
     'Research Papers',
-    'https://rss.arxiv.org/rss/cs.CL',
-    'rss', 'active', 9,
+    'https://export.arxiv.org/api/query?search_query=cat:cs.CL',
+    'api', 'active', 9,
     array['nlp', 'llm', 'papers'],
     'arXiv Computation & Language — NLP and large language models.'
   ),
   (
     'arXiv — cs.CV',
     'Research Papers',
-    'https://rss.arxiv.org/rss/cs.CV',
-    'rss', 'active', 8,
+    'https://export.arxiv.org/api/query?search_query=cat:cs.CV',
+    'api', 'active', 8,
     array['vision', 'multimodal', 'papers'],
     'arXiv Computer Vision — vision and multimodal.'
   ),
@@ -195,4 +199,25 @@ values
     'api', 'active', 7,
     array['hackernews', 'discussion', 'llm'],
     'High-score HN stories matching "LLM". Widens AI coverage alongside the AI query.'
+  ),
+  -- Social / Discussion — top-of-month subreddit posts via Reddit's public
+  -- top.json (1.4 slice B). ingestion_type='api', keyless (rate-limited by
+  -- User-Agent). `t=month&limit=N` returns the top N by score — that IS the
+  -- selection floor. Link-first: external link post → its target; self post →
+  -- the permalink discussion page. `score` is stored as the popularity metric.
+  (
+    'Reddit — r/MachineLearning (top)',
+    'Social / Discussion',
+    'https://www.reddit.com/r/MachineLearning/top.json?t=month&limit=25',
+    'api', 'active', 7,
+    array['reddit', 'discussion', 'ml'],
+    'Top-of-month posts from r/MachineLearning. Link-first to the post or thread.'
+  ),
+  (
+    'Reddit — r/LocalLLaMA (top)',
+    'Social / Discussion',
+    'https://www.reddit.com/r/LocalLLaMA/top.json?t=month&limit=25',
+    'api', 'active', 7,
+    array['reddit', 'discussion', 'local-llm'],
+    'Top-of-month posts from r/LocalLLaMA. Link-first to the post or thread.'
   );

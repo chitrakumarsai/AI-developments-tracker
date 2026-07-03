@@ -31,6 +31,7 @@ export async function persistItems(
     tags: item.tags ?? [],
     published_at: item.publishedAt ?? null,
     metric: item.metric ?? null,
+    forks: item.forks ?? null,
   }));
 
   let added = 0;
@@ -49,15 +50,19 @@ export async function persistItems(
     }
     added = data?.length ?? 0;
 
-    // Refresh the popularity metric on existing rows too: `ignoreDuplicates`
-    // skips them on insert, but stars/likes change over time and should stay
-    // current (this also backfills rows ingested before the metric column
+    // Refresh the popularity signals on existing rows too: `ignoreDuplicates`
+    // skips them on insert, but stars/likes/forks change over time and should
+    // stay current (this also backfills rows ingested before these columns
     // existed). Keyed on the unique `url`; runs only for metric-bearing items.
+    // `forks` is refreshed alongside `metric` (null for non-GitHub sources).
     const metricRows = result.items.filter((item) => typeof item.metric === "number");
     if (metricRows.length > 0) {
       const updates = await Promise.all(
         metricRows.map((item) =>
-          client.from("items").update({ metric: item.metric }).eq("url", item.url),
+          client
+            .from("items")
+            .update({ metric: item.metric, forks: item.forks ?? null })
+            .eq("url", item.url),
         ),
       );
       const failed = updates.filter((u) => u.error).length;

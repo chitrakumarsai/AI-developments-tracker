@@ -35,6 +35,20 @@ describe("apiConnector (host router)", () => {
     expect(result.warnings.every((w) => !/no api connector/i.test(w))).toBe(true);
   });
 
+  it("routes www.reddit.com to the Reddit connector", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ data: { children: [] } }), { status: 200 })),
+    );
+    const result = await apiConnector({
+      ...base,
+      url: "https://www.reddit.com/r/MachineLearning/top.json?t=month&limit=25",
+    });
+    // Reached the Reddit connector (empty-but-valid result, no router-level warning).
+    expect(result.items).toEqual([]);
+    expect(result.warnings.every((w) => !/no api connector/i.test(w))).toBe(true);
+  });
+
   it("warns for a host with no connector yet", async () => {
     const result = await apiConnector({ ...base, url: "https://example.com/api/models" });
     expect(result.items).toHaveLength(0);

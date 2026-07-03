@@ -1,0 +1,58 @@
+{
+  "kind": "Listing",
+  "data": {
+    "children": [
+      {
+        "kind": "t3",
+        "data": {
+          "title": "New open-weights model beats GPT-4 on MMLU &amp; GSM8K",
+          "url": "https://example.com/new-model",
+          "permalink": "/r/MachineLearning/comments/aaa111/new_open_weights_model/",
+          "author": "researcher",
+          "score": 1840,
+          "num_comments": 312,
+          "created_utc": 1782000000,
+          "subreddit": "MachineLearning"
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "title": "Discussion: best local LLM stack in 2026?",
+          "url": "https://www.reddit.com/r/LocalLLaMA/comments/bbb222/discussion_best_local_llm/",
+          "permalink": "/r/LocalLLaMA/comments/bbb222/discussion_best_local_llm/",
+          "author": "builder",
+          "score": 640,
+          "num_comments": 128,
+          "created_utc": 1781900000,
+          "subreddit": "LocalLLaMA"
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "title": "",
+          "url": "https://example.com/no-title",
+          "permalink": "/r/MachineLearning/comments/ccc333/no_title/",
+          "author": "anon",
+          "score": 200,
+          "num_comments": 5,
+          "created_utc": 1781800000,
+          "subreddit": "MachineLearning"
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "title": "No url and no permalink — must be skipped",
+          "url": null,
+          "author": "ghost",
+          "score": 90,
+          "num_comments": 2,
+          "created_utc": 1781700000,
+          "subreddit": "MachineLearning"
+        }
+      }
+    ]
+  }
+}

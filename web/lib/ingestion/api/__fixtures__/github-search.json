@@ -7,6 +7,7 @@
       "html_url": "https://github.com/acme/fast-llm",
       "description": "A <b>fast</b> LLM inference engine &amp; toolkit",
       "stargazers_count": 12000,
+      "forks_count": 1500,
       "pushed_at": "2026-06-28T10:00:00Z",
       "owner": { "login": "acme" }
     },
@@ -15,6 +16,7 @@
       "html_url": "https://github.com/labs/agent-framework",
       "description": "Build autonomous agents",
       "stargazers_count": 8200,
+      "forks_count": 640,
       "pushed_at": "2026-06-25T09:30:00Z",
       "owner": { "login": "labs" }
     },

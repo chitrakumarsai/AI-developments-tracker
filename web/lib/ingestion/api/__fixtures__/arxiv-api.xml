@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title type="html">ArXiv Query: search_query=cat:cs.AI</title>
+  <id>http://arxiv.org/api/query</id>
+  <updated>2026-07-03T00:00:00-04:00</updated>
+  <opensearch:totalResults xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/">120000</opensearch:totalResults>
+  <entry>
+    <id>http://arxiv.org/abs/2507.00001v1</id>
+    <updated>2026-07-02T17:59:59Z</updated>
+    <published>2026-07-02T17:59:59Z</published>
+    <title>Scaling Agentic Reasoning with Verifier-Guided Search</title>
+    <summary>  We present a method that improves agentic reasoning by pairing a policy
+model with a learned verifier.
+</summary>
+    <author><name>Ada Researcher</name></author>
+    <author><name>Grace Scientist</name></author>
+    <link href="http://arxiv.org/abs/2507.00001v1" rel="alternate" type="text/html"/>
+    <link title="pdf" href="http://arxiv.org/pdf/2507.00001v1" rel="related" type="application/pdf"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/2507.00002v1</id>
+    <updated>2026-07-02T16:30:00Z</updated>
+    <published>2026-07-02T16:30:00Z</published>
+    <title>A Benchmark for Long-Horizon Tool Use</title>
+    <summary>  We introduce a benchmark covering multi-step tool-use tasks.
+</summary>
+    <author><name>Alan Engineer</name></author>
+    <link href="http://arxiv.org/abs/2507.00002v1" rel="alternate" type="text/html"/>
+    <link title="pdf" href="http://arxiv.org/pdf/2507.00002v1" rel="related" type="application/pdf"/>
+    <category term="cs.AI" scheme="http://arxiv.org/schemas/atom"/>
+  </entry>
+</feed>

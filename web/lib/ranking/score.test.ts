@@ -83,6 +83,24 @@ describe("rankItems", () => {
     expect(ranked.indexOf(paperNew)).toBeLessThan(ranked.indexOf(repoOldQuiet));
   });
 
+  it("blends forks into effective popularity (stars + forks) for the same source", () => {
+    // Same stars, same age: the repo with forks has higher effective popularity
+    // and must outrank the fork-less one.
+    const withForks = { source_id: "gh", metric: 5000, forks: 5000, published_at: daysAgo(10) };
+    const noForks = { source_id: "gh", metric: 5000, forks: 0, published_at: daysAgo(10) };
+    const ranked = rankItems([noForks, withForks], NOW, 30);
+    expect(ranked[0]).toBe(withForks);
+  });
+
+  it("treats absent forks as +0 (Slice A behavior unchanged)", () => {
+    // Without forks, effective popularity == metric, so ordering is identical to
+    // the metric-only ranker.
+    const a = { source_id: "gh", metric: 8000, published_at: daysAgo(5) };
+    const b = { source_id: "gh", metric: 2000, published_at: daysAgo(5) };
+    const ranked = rankItems([b, a], NOW, 30);
+    expect(ranked[0]).toBe(a);
+  });
+
   it("does not mutate the input array", () => {
     const items: RankableItem[] = [
       { source_id: "a", metric: 1, published_at: daysAgo(5) },

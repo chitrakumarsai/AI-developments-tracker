@@ -12,7 +12,7 @@ import type { IngestionResult, NormalizedItem } from "./types";
 function makeFakeClient() {
   const seenUrls = new Set<string>();
   const stamped: string[] = [];
-  const metricUpdates: Array<{ url: string; metric: unknown }> = [];
+  const metricUpdates: Array<{ url: string; metric: unknown; forks: unknown }> = [];
 
   const client = {
     from(table: string) {
@@ -28,10 +28,10 @@ function makeFakeClient() {
               }),
             };
           },
-          update(patch: { metric: unknown }) {
+          update(patch: { metric: unknown; forks?: unknown }) {
             return {
               eq: async (_col: string, url: string) => {
-                metricUpdates.push({ url, metric: patch.metric });
+                metricUpdates.push({ url, metric: patch.metric, forks: patch.forks ?? null });
                 return { error: null };
               },
             };
@@ -124,9 +124,24 @@ describe("persistItems", () => {
     await persistItems(client, withMetric);
 
     expect(metricUpdates).toEqual([
-      { url: "a", metric: 1200 },
-      { url: "a", metric: 1200 },
+      { url: "a", metric: 1200, forks: null },
+      { url: "a", metric: 1200, forks: null },
     ]);
+  });
+
+  it("refreshes forks alongside the metric for GitHub items", async () => {
+    const { client, metricUpdates } = makeFakeClient();
+    const withForks: IngestionResult = {
+      sourceId: "src-1",
+      warnings: [],
+      items: [
+        { title: "Repo A", url: "a", category: "GitHub Repositories", metric: 1200, forks: 340 },
+      ],
+    };
+
+    await persistItems(client, withForks);
+
+    expect(metricUpdates).toEqual([{ url: "a", metric: 1200, forks: 340 }]);
   });
 
   it("reports a warning and skips all when the upsert errors", async () => {

@@ -66,8 +66,23 @@ export function rankScore(recency: number, popularity: number): number {
 export type RankableItem = {
   source_id: string;
   metric: number | null;
+  /** Second additive popularity signal (GitHub forks); absent → +0. */
+  forks?: number | null;
   published_at: string | null;
 };
+
+/**
+ * Effective popularity for ranking: `metric + forks` (each treated as 0 when
+ * absent/negative). GitHub gets a fork boost on top of stars; every other source
+ * has no forks, so this equals `metric`. Returns null when there is no signal at
+ * all, so `popularityScore` scores it 0.
+ */
+function effectiveMetric(item: RankableItem): number | null {
+  const stars = typeof item.metric === "number" && item.metric > 0 ? item.metric : 0;
+  const forks = typeof item.forks === "number" && item.forks > 0 ? item.forks : 0;
+  const total = stars + forks;
+  return total > 0 ? total : null;
+}
 
 /**
  * Rank a pool of items by recency + per-source-normalized popularity, newest and
@@ -78,19 +93,21 @@ export function rankItems<T extends RankableItem>(
   now: number,
   windowDays: number,
 ): T[] {
-  // Per-source max metric, computed over the pool for fair normalization.
+  // Per-source max effective popularity, computed over the pool for fair
+  // normalization (stars + forks for GitHub, plain metric elsewhere).
   const sourceMax = new Map<string, number>();
   for (const item of items) {
-    if (typeof item.metric === "number" && item.metric > 0) {
+    const value = effectiveMetric(item);
+    if (value !== null) {
       const current = sourceMax.get(item.source_id) ?? 0;
-      if (item.metric > current) sourceMax.set(item.source_id, item.metric);
+      if (value > current) sourceMax.set(item.source_id, value);
     }
   }
 
   return items
     .map((item, index) => {
       const recency = recencyScore(item.published_at, now, windowDays);
-      const popularity = popularityScore(item.metric, sourceMax.get(item.source_id));
+      const popularity = popularityScore(effectiveMetric(item), sourceMax.get(item.source_id));
       return { item, index, score: rankScore(recency, popularity) };
     })
     .sort((a, b) => b.score - a.score || a.index - b.index)
