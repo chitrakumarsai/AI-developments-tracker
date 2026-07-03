@@ -201,10 +201,12 @@ values
     'High-score HN stories matching "LLM". Widens AI coverage alongside the AI query.'
   ),
   -- Social / Discussion — top-of-month subreddit posts via Reddit's public
-  -- top.json (1.4 slice B). ingestion_type='api', keyless (rate-limited by
-  -- User-Agent). `t=month&limit=N` returns the top N by score — that IS the
-  -- selection floor. Link-first: external link post → its target; self post →
-  -- the permalink discussion page. `score` is stored as the popularity metric.
+  -- top.json (1.4 slice B, expanded 1.4 slice C). ingestion_type='api', keyless
+  -- (rate-limited by User-Agent). `t=month&limit=N` pre-sorts by score; the
+  -- connector then applies the noise gate (drop < 50 upvotes, keep top 5/sub) so
+  -- broader/noisier subs can't flood the feed. Link-first: external link post →
+  -- its target; self post → the permalink discussion page. `score` is the metric.
+  -- Priority nudges ranking: applied/technical subs above frontier/hype subs.
   (
     'Reddit — r/MachineLearning (top)',
     'Social / Discussion',
@@ -220,4 +222,97 @@ values
     'api', 'active', 7,
     array['reddit', 'discussion', 'local-llm'],
     'Top-of-month posts from r/LocalLLaMA. Link-first to the post or thread.'
+  ),
+  (
+    'Reddit — r/StableDiffusion (top)',
+    'Social / Discussion',
+    'https://www.reddit.com/r/StableDiffusion/top.json?t=month&limit=25',
+    'api', 'active', 7,
+    array['reddit', 'discussion', 'image-gen', 'open-models'],
+    'Applied/generative: open image models, tooling, workflows.'
+  ),
+  (
+    'Reddit — r/OpenAI (top)',
+    'Social / Discussion',
+    'https://www.reddit.com/r/OpenAI/top.json?t=month&limit=25',
+    'api', 'active', 7,
+    array['reddit', 'discussion', 'llm', 'products'],
+    'OpenAI product/model news and discussion.'
+  ),
+  (
+    'Reddit — r/comfyui (top)',
+    'Social / Discussion',
+    'https://www.reddit.com/r/comfyui/top.json?t=month&limit=25',
+    'api', 'active', 6,
+    array['reddit', 'discussion', 'image-gen', 'tooling'],
+    'ComfyUI workflows and node/tooling ecosystem.'
+  ),
+  (
+    'Reddit — r/artificial (top)',
+    'Social / Discussion',
+    'https://www.reddit.com/r/artificial/top.json?t=month&limit=25',
+    'api', 'active', 6,
+    array['reddit', 'discussion'],
+    'Broad AI news and discussion. Noise gate keeps only high-vote items.'
+  ),
+  (
+    'Reddit — r/singularity (top)',
+    'Social / Discussion',
+    'https://www.reddit.com/r/singularity/top.json?t=month&limit=25',
+    'api', 'active', 5,
+    array['reddit', 'discussion', 'frontier'],
+    'Frontier/AGI discussion — higher volume; noise gate is doing the work here.'
+  ),
+  (
+    'Reddit — r/agi (top)',
+    'Social / Discussion',
+    'https://www.reddit.com/r/agi/top.json?t=month&limit=25',
+    'api', 'active', 5,
+    array['reddit', 'discussion', 'frontier'],
+    'AGI-focused discussion — lower priority; noise gate trims weak posts.'
+  ),
+  -- Newsletters & Blogs — curated AI roundups via the generic RSS connector
+  -- (1.4 slice C). ingestion_type='rss', keyless. Inherently low-noise (human
+  -- curation), so no vote floor applies — the RSS connector's item cap is enough.
+  -- Every feed URL was validated to resolve before seeding (§6). The Batch was
+  -- dropped (no working public RSS) and replaced with Interconnects.
+  (
+    'Import AI (Jack Clark)',
+    'Newsletters & Blogs',
+    'https://importai.substack.com/feed',
+    'rss', 'active', 8,
+    array['newsletter', 'analysis', 'research'],
+    'Weekly high-signal research + policy roundup by Jack Clark.'
+  ),
+  (
+    'Interconnects (Nathan Lambert)',
+    'Newsletters & Blogs',
+    'https://www.interconnects.ai/feed',
+    'rss', 'active', 8,
+    array['newsletter', 'analysis', 'rlhf', 'open-models'],
+    'Deep analysis on RLHF, open models, and frontier training (Nathan Lambert).'
+  ),
+  (
+    'Ahead of AI (Sebastian Raschka)',
+    'Newsletters & Blogs',
+    'https://magazine.sebastianraschka.com/feed',
+    'rss', 'active', 8,
+    array['newsletter', 'analysis', 'ml', 'llm'],
+    'Technical deep-dives on LLMs and ML research by Sebastian Raschka.'
+  ),
+  (
+    'Last Week in AI',
+    'Newsletters & Blogs',
+    'https://lastweekin.ai/feed',
+    'rss', 'active', 7,
+    array['newsletter', 'roundup'],
+    'Weekly roundup of the biggest AI news and research.'
+  ),
+  (
+    'TLDR AI',
+    'Newsletters & Blogs',
+    'https://tldr.tech/api/rss/ai',
+    'rss', 'active', 6,
+    array['newsletter', 'roundup', 'daily'],
+    'Daily bite-sized AI news digest.'
   );

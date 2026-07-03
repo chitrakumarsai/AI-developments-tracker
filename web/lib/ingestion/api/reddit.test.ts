@@ -51,6 +51,47 @@ describe("parseReddit", () => {
     expect(result.items[0].publishedAt).toBe(new Date(1782000000 * 1000).toISOString());
   });
 
+  it("drops posts below the minimum score floor (noise gate)", () => {
+    const listing = {
+      data: {
+        children: [
+          {
+            kind: "t3",
+            data: { title: "Popular", url: "https://example.com/a", score: 1000 },
+          },
+          {
+            kind: "t3",
+            data: { title: "Borderline low", url: "https://example.com/b", score: 40 },
+          },
+          {
+            kind: "t3",
+            data: { title: "Just over floor", url: "https://example.com/c", score: 60 },
+          },
+        ],
+      },
+    };
+    const result = parseReddit(listing, source);
+    // score 40 dropped; 1000 and 60 kept.
+    expect(result.items).toHaveLength(2);
+    expect(result.items.map((i) => i.metric)).toEqual([1000, 60]);
+  });
+
+  it("keeps only the top-K posts per subreddit, highest score first (noise gate)", () => {
+    const scores = [100, 700, 300, 600, 200, 500, 400];
+    const listing = {
+      data: {
+        children: scores.map((score, idx) => ({
+          kind: "t3",
+          data: { title: `Post ${idx}`, url: `https://example.com/${idx}`, score },
+        })),
+      },
+    };
+    const result = parseReddit(listing, source);
+    // 7 posts all above the floor → capped to top 5 by score.
+    expect(result.items).toHaveLength(5);
+    expect(result.items.map((i) => i.metric)).toEqual([700, 600, 500, 400, 300]);
+  });
+
   it("falls back to a permalink discussion page when there is no external url", () => {
     const selfOnly = {
       data: {

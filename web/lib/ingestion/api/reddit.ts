@@ -16,13 +16,22 @@ import { FETCH_TIMEOUT_MS, USER_AGENT, unsafeUrlReason } from "../net";
  * discussion page. Reddit already sets `url` to the permalink for self posts, so
  * the fallback mainly guards malformed payloads.
  *
- * Top-N: the source URL carries `?t=month&limit=<N>`, so Reddit returns the
- * highest-scoring N posts of the last month — that IS the selection floor
- * (no extra score gate needed). `score` is stored as the item `metric` so the
- * ranker can normalize Reddit popularity per source.
+ * Noise gate (§1.4 Slice C): top-of-month ordering alone is too weak once we
+ * track broader/noisier subreddits (r/singularity, r/agi) — a quiet week still
+ * surfaces weak posts. So the connector enforces two floors: drop any post below
+ * `MIN_SCORE` upvotes, then keep only the `TOP_K` highest-scoring per subreddit.
+ * Only genuinely popular items reach the DB. Dropped-by-floor posts are an
+ * intentional selection (not a data problem), so they are removed without a
+ * warning — mirroring the HN connector. `score` is stored as the item `metric`
+ * so the ranker can normalize Reddit popularity per source.
+ *
+ * These are named constants (not magic numbers); the future Settings slice
+ * (v3 item 3) can lift them into per-source config columns.
  */
 
 const MAX_ITEMS = 50;
+const MIN_SCORE = 50;
+const TOP_K = 5;
 const REDDIT_ORIGIN = "https://www.reddit.com";
 
 type RedditPost = {
@@ -69,7 +78,8 @@ export function parseReddit(json: RedditListing, source: SourceRef): IngestionRe
 
     const title = sanitizeText(post.title);
     if (!title) {
-      warnings.push(`Skipped Reddit post with missing title (author: ${post.author || "none"}).`);
+      const who = sanitizeText(post.author) || "none";
+      warnings.push(`Skipped Reddit post with missing title (author: ${who}).`);
       continue;
     }
     const external = sanitizeUrl(post.url);
@@ -79,7 +89,13 @@ export function parseReddit(json: RedditListing, source: SourceRef): IngestionRe
       warnings.push(`Skipped Reddit post with no usable url (title: ${title}).`);
       continue;
     }
-    const score = typeof post.score === "number" && post.score >= 0 ? post.score : undefined;
+    const score =
+      typeof post.score === "number" && Number.isFinite(post.score) && post.score >= 0
+        ? post.score
+        : undefined;
+    // Score floor (see file header): missing/sub-threshold score → dropped as an
+    // intentional selection, no warning.
+    if (score === undefined || score < MIN_SCORE) continue;
     const summaryParts = [
       typeof post.score === "number" ? `${post.score} upvotes` : null,
       typeof post.num_comments === "number" ? `${post.num_comments} comments` : null,
@@ -96,7 +112,13 @@ export function parseReddit(json: RedditListing, source: SourceRef): IngestionRe
     });
   }
 
-  return { sourceId: source.id, items, warnings };
+  // Top-K cap (see file header): Reddit returns score-sorted, but sort
+  // defensively before slicing so the cap is correct regardless of input order.
+  const topItems = [...items]
+    .sort((a, b) => (b.metric ?? 0) - (a.metric ?? 0))
+    .slice(0, TOP_K);
+
+  return { sourceId: source.id, items: topItems, warnings };
 }
 
 export const redditConnector: Connector = async (source) => {
