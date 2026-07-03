@@ -10,9 +10,13 @@ import {
   type FeedSort,
   type FeedWindow,
 } from "@/lib/feed/queries";
+import { feedHref } from "@/lib/feed/filterHref";
 
 /** Sections whose items carry a popularity metric, so a Top-starred sort makes sense. */
 const SORTABLE_SLUGS = new Set(["repos", "models"]);
+
+/** Cap the length of an incoming tag param so a hostile URL can't bloat state. */
+const MAX_TAG_LENGTH = 64;
 
 const WINDOW_OPTIONS: ReadonlyArray<{ key: FeedWindow; label: string }> = [
   { key: "today", label: "Today" },
@@ -21,17 +25,6 @@ const WINDOW_OPTIONS: ReadonlyArray<{ key: FeedWindow; label: string }> = [
   { key: "all", label: "All" },
 ];
 const WINDOW_KEYS: ReadonlySet<string> = new Set(WINDOW_OPTIONS.map((w) => w.key));
-
-/** Build a feed URL preserving section, sort, and window (omitting defaults). */
-function feedHref(section: string, sort: FeedSort, window: FeedWindow): string {
-  const params = new URLSearchParams();
-  if (section && section !== "all") params.set("section", section);
-  if (sort === "metric") params.set("sort", "stars");
-  else if (sort === "recent") params.set("sort", "recent");
-  if (window !== DEFAULT_WINDOW) params.set("window", window);
-  const qs = params.toString();
-  return qs ? `/?${qs}` : "/";
-}
 
 // The feed reflects live database state, so render per-request (not at build).
 export const dynamic = "force-dynamic";
@@ -52,6 +45,8 @@ export default async function Home({
     show?: string;
     sort?: string;
     window?: string;
+    source?: string;
+    tag?: string;
   }>;
 }) {
   const {
@@ -59,8 +54,14 @@ export default async function Home({
     show: showParam,
     sort: sortParam,
     window: windowParam,
+    source: sourceParam,
+    tag: tagParam,
   } = await searchParams;
   const active = sectionForSlug(sectionParam);
+
+  // Untrusted URL params: keep a non-empty source id; trim + length-cap the tag.
+  const source = sourceParam?.trim() ? sourceParam.trim() : undefined;
+  const tag = tagParam?.trim() ? tagParam.trim().slice(0, MAX_TAG_LENGTH) : undefined;
   const requested = Number.parseInt(showParam ?? "", 10);
   const limit = Number.isNaN(requested)
     ? INITIAL_FEED_LIMIT
@@ -101,7 +102,13 @@ export default async function Home({
               return (
                 <li key={section.slug}>
                   <Link
-                    href={feedHref(section.slug, "relevant", window)}
+                    href={feedHref({
+                      section: section.slug,
+                      sort: "relevant",
+                      window,
+                      source,
+                      tag,
+                    })}
                     aria-current={isActive ? "page" : undefined}
                     className={`inline-block rounded-[var(--radius-sm)] px-3 py-1.5 text-sm transition-colors ${
                       isActive
@@ -128,7 +135,13 @@ export default async function Home({
                 return (
                   <Link
                     key={option.key}
-                    href={feedHref(active.slug, sort, option.key)}
+                    href={feedHref({
+                      section: active.slug,
+                      sort,
+                      window: option.key,
+                      source,
+                      tag,
+                    })}
                     aria-current={isActive ? "true" : undefined}
                     className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] px-2.5 font-medium transition-colors ${
                       isActive
@@ -148,7 +161,13 @@ export default async function Home({
                 return (
                   <Link
                     key={option.key}
-                    href={feedHref(active.slug, option.key, window)}
+                    href={feedHref({
+                      section: active.slug,
+                      sort: option.key,
+                      window,
+                      source,
+                      tag,
+                    })}
                     aria-current={isActive ? "true" : undefined}
                     className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] px-2.5 font-medium transition-colors ${
                       isActive
@@ -163,11 +182,13 @@ export default async function Home({
             </div>
           </div>
           <Suspense
-            key={`${active.slug}:${limit}:${sort}:${window}`}
+            key={`${active.slug}:${limit}:${sort}:${window}:${source ?? ""}:${tag ?? ""}`}
             fallback={<FeedFallback />}
           >
             <FeedList
               category={active.category}
+              source={source}
+              tag={tag}
               sectionLabel={active.label}
               sectionSlug={active.slug}
               limit={limit}

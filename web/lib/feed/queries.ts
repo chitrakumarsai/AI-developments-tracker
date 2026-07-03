@@ -1,8 +1,16 @@
 import "server-only";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { getServerClient } from "../supabase/server";
 import type { ItemRow } from "../supabase/types";
 import { rankItems } from "../ranking/score";
+import { DEFAULT_WINDOW, type FeedSort, type FeedWindow } from "./types";
+
+// Re-export the shared value types so existing importers of "@/lib/feed/queries"
+// keep working; the definitions now live in the client-safe ./types module.
+export { DEFAULT_WINDOW };
+export type { FeedSort, FeedWindow };
 
 export const DEFAULT_FEED_LIMIT = 50;
 export const MAX_FEED_LIMIT = 100;
@@ -16,20 +24,6 @@ export const INITIAL_FEED_LIMIT = 20;
 export const FEED_PAGE_STEP = 20;
 
 const MS_PER_DAY = 86_400_000;
-
-/**
- * Feed sort order.
- * - `relevant` (default) = recency + per-source-normalized popularity (§1.4).
- * - `recent` = newest first.
- * - `metric` = most stars/likes first (Repos/Models override).
- */
-export type FeedSort = "relevant" | "recent" | "metric";
-
-/** Recency window the reader can pick; scopes and shapes ranking (app-feedback-v2). */
-export type FeedWindow = "today" | "week" | "month" | "all";
-
-/** Default window: one month of history, per the user's follow-the-field cadence. */
-export const DEFAULT_WINDOW: FeedWindow = "month";
 
 /** Window → day span; `null` means unbounded ("all"). */
 export const WINDOW_DAYS: Record<FeedWindow, number | null> = {
@@ -52,6 +46,10 @@ const RANK_POOL_SIZE = 300;
 export type FeedQuery = {
   /** DB category to filter to; null/undefined = all categories. */
   category?: string | null;
+  /** Restrict to one source (`items.source_id`); null/undefined = all sources. */
+  source?: string | null;
+  /** Restrict to items carrying this tag; null/undefined = no tag filter. */
+  tag?: string | null;
   sort?: FeedSort;
   window?: FeedWindow;
   limit?: number;
@@ -59,18 +57,25 @@ export type FeedQuery = {
 
 /**
  * Load feed items. Default order is relevance (recency + popularity), which
- * interleaves every source into one ranked list — the fix for "I have to scroll
- * through all arXiv before I reach GitHub". `recent`/`metric` remain as explicit
- * overrides. The `window` bounds and shapes ranking (default: one month).
- * Resilient callers should catch — a Supabase failure throws here.
+ * interleaves every source into one ranked list. `recent`/`metric` are explicit
+ * overrides. `category`, `source`, and `tag` narrow the set (all combine); the
+ * `window` bounds and shapes ranking (default: one month).
+ *
+ * The Supabase client is injected (defaulting to the server client) so the
+ * filter logic is unit-testable without a live database. Resilient callers
+ * should catch — a Supabase failure throws here.
  */
-export async function getFeedItems({
-  category,
-  sort = "relevant",
-  window = DEFAULT_WINDOW,
-  limit = INITIAL_FEED_LIMIT,
-}: FeedQuery = {}): Promise<ItemRow[]> {
-  const client = getServerClient();
+export async function getFeedItems(
+  {
+    category,
+    source,
+    tag,
+    sort = "relevant",
+    window = DEFAULT_WINDOW,
+    limit = INITIAL_FEED_LIMIT,
+  }: FeedQuery = {},
+  client: SupabaseClient = getServerClient(),
+): Promise<ItemRow[]> {
   const now = Date.now();
   const windowDays = WINDOW_DAYS[window] ?? null;
 
@@ -78,6 +83,13 @@ export async function getFeedItems({
   let query = client.from("items").select("*, source:sources(name)");
   if (category) {
     query = query.eq("category", category);
+  }
+  if (source) {
+    query = query.eq("source_id", source);
+  }
+  if (tag) {
+    // Postgres array containment: rows whose `tags` include this value.
+    query = query.contains("tags", [tag]);
   }
   if (windowDays != null) {
     const since = new Date(now - windowDays * MS_PER_DAY).toISOString();

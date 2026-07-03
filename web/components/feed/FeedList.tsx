@@ -9,8 +9,11 @@ import {
   type FeedSort,
   type FeedWindow,
 } from "@/lib/feed/queries";
+import { feedHref, type FeedHrefParams } from "@/lib/feed/filterHref";
+import { platformForItem } from "@/lib/feed/platform";
 import type { ItemRow } from "@/lib/supabase/types";
 import { ItemCard } from "./ItemCard";
+import { ActiveFilters } from "./ActiveFilters";
 
 function Notice({ title, body }: { title: string; body: string }) {
   return (
@@ -26,6 +29,10 @@ function Notice({ title, body }: { title: string; body: string }) {
 type FeedListProps = {
   /** DB category to filter to; null/undefined shows all categories. */
   category?: string | null;
+  /** Restrict to one source id; null/undefined shows all sources. */
+  source?: string | null;
+  /** Restrict to items carrying this tag; null/undefined = no tag filter. */
+  tag?: string | null;
   /** Section label, used only for the empty-state copy. */
   sectionLabel?: string;
   /** Active section slug, used to build the Show more link. */
@@ -38,38 +45,28 @@ type FeedListProps = {
   window?: FeedWindow;
 };
 
-/** Build the Show more href, preserving section, sort, and window. */
-function moreHref(
-  sectionSlug: string,
-  nextLimit: number,
-  sort: FeedSort,
-  window: FeedWindow,
-): string {
-  const params = new URLSearchParams();
-  if (sectionSlug && sectionSlug !== "all") params.set("section", sectionSlug);
-  if (sort === "metric") params.set("sort", "stars");
-  else if (sort === "recent") params.set("sort", "recent");
-  if (window !== DEFAULT_WINDOW) params.set("window", window);
-  params.set("show", String(nextLimit));
-  return `/?${params.toString()}`;
-}
-
 /**
- * Server component: loads recent items (optionally filtered to one category)
- * and renders the editorial feed, finite-first with an explicit Show more.
- * Resilient — a Supabase failure shows a notice instead of crashing the route.
+ * Server component: loads recent items (optionally narrowed by category, source,
+ * and/or tag) and renders the editorial feed, finite-first with an explicit
+ * Show more. Resilient — a Supabase failure shows a notice instead of crashing.
  */
 export async function FeedList({
   category,
+  source,
+  tag,
   sectionLabel,
   sectionSlug = "all",
   limit = INITIAL_FEED_LIMIT,
   sort = "relevant",
   window = DEFAULT_WINDOW,
 }: FeedListProps = {}) {
+  // Shared filter context: every in-feed link is built from this so the URL
+  // stays the single source of truth and filters combine cleanly.
+  const context: FeedHrefParams = { section: sectionSlug, sort, window, source, tag };
+
   let items: ItemRow[] = [];
   try {
-    items = await getFeedItems({ category, sort, window, limit });
+    items = await getFeedItems({ category, source, tag, sort, window, limit });
   } catch {
     return (
       <Notice
@@ -79,13 +76,26 @@ export async function FeedList({
     );
   }
 
+  // All rows share the same source when filtered, so the first item names it.
+  const sourceLabel = source
+    ? (items[0] ? platformForItem(items[0]).label : null)
+    : null;
+
   if (items.length === 0) {
+    const isFiltered = Boolean(source || tag);
     const scope = category ? `${sectionLabel ?? "this section"}` : "the feed";
     return (
-      <Notice
-        title="No signal yet."
-        body={`Nothing in ${scope} yet. Once a matching source is ingested, items will appear here.`}
-      />
+      <>
+        <ActiveFilters context={context} sourceLabel={sourceLabel} />
+        <Notice
+          title="No matches."
+          body={
+            isFiltered
+              ? "No items match these filters. Clear one above to widen the feed."
+              : `Nothing in ${scope} yet. Once a matching source is ingested, items will appear here.`
+          }
+        />
+      </>
     );
   }
 
@@ -95,10 +105,12 @@ export async function FeedList({
 
   return (
     <>
+      <ActiveFilters context={context} sourceLabel={sourceLabel} />
+
       <ul className="flex flex-col">
         {items.map((item) => (
           <li key={item.id}>
-            <ItemCard item={item} />
+            <ItemCard item={item} context={context} />
           </li>
         ))}
       </ul>
@@ -107,7 +119,7 @@ export async function FeedList({
         <span>Showing {items.length}</span>
         {canShowMore ? (
           <Link
-            href={moreHref(sectionSlug, nextLimit, sort, window)}
+            href={feedHref({ ...context, show: nextLimit })}
             scroll={false}
             className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-rule px-4 font-medium text-muted transition-colors hover:border-accent hover:text-accent"
           >
