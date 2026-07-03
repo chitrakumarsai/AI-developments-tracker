@@ -2,27 +2,22 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getServerClient } from "@/lib/supabase/server";
-import { getConnector } from "@/lib/ingestion/registry";
-import { persistItems } from "@/lib/ingestion/persist";
-import type { SourceRow } from "@/lib/supabase/types";
+import { runIngestion } from "@/lib/ingestion/run";
+import { isAuthorizedCron } from "@/lib/http/cron-auth";
 
 const querySchema = z.object({ source: z.string().min(1).default("all") });
 
 /**
  * POST /api/ingest/run?source=<id|all> — manual ingestion trigger.
  *
- * Catalog-driven (§6/§7): loads active sources and dispatches each to the
- * connector registered for its `ingestion_type`. Sources whose type has no
- * connector yet (api/scrape/manual) are skipped with a warning. Scheduled
- * refresh arrives in 1.3. Not the cron route.
+ * Shares the guard + loop with the scheduled cron route (§6/§7): same auth
+ * (`isAuthorizedCron`) and the same resilient `runIngestion` helper, just
+ * without the due-filter — a manual run ingests the requested source(s)
+ * immediately. Sources whose `ingestion_type` has no connector yet are skipped
+ * with a warning inside the summary.
  */
 export async function POST(request: Request) {
-  // Auth: when CRON_SECRET is configured (any deployed env, and required once
-  // the 1.3 Vercel Cron wiring lands) the caller must present it. Unset locally
-  // for single-user dev convenience. TODO(1.3): make the secret mandatory and
-  // share this guard with the scheduled-refresh route.
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && request.headers.get("x-cron-secret") !== cronSecret) {
+  if (!isAuthorizedCron(request)) {
     return NextResponse.json(
       { success: false, data: null, error: "Unauthorized." },
       { status: 401 },
@@ -40,46 +35,18 @@ export async function POST(request: Request) {
     );
   }
 
-  const client = getServerClient();
-  let query = client.from("sources").select("*").eq("status", "active");
-  if (parsed.data.source !== "all") {
-    query = query.eq("id", parsed.data.source);
-  }
-
-  const { data: sources, error } = await query;
-  if (error) {
+  try {
+    const client = getServerClient();
+    const summary = await runIngestion(client, { sourceId: parsed.data.source });
+    return NextResponse.json({ success: true, data: summary });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : "Ingestion failed.";
+    console.error(`[ingest/run] run failed: ${detail}`);
+    const message =
+      process.env.NODE_ENV === "production" ? "Ingestion failed." : detail;
     return NextResponse.json(
-      { success: false, data: null, error: error.message },
+      { success: false, data: null, error: message },
       { status: 500 },
     );
   }
-
-  const perSource = [];
-  for (const source of (sources ?? []) as SourceRow[]) {
-    const connector = getConnector(source.ingestion_type);
-    if (!connector) {
-      perSource.push({
-        source: source.name,
-        added: 0,
-        skipped: 0,
-        warnings: [`No connector for ingestion_type '${source.ingestion_type}' yet.`],
-      });
-      continue;
-    }
-    const ingestion = await connector({
-      id: source.id,
-      name: source.name,
-      category: source.category,
-      url: source.url,
-      tags: source.tags,
-    });
-    const outcome = await persistItems(client, ingestion);
-    perSource.push({ source: source.name, ...outcome });
-  }
-
-  const added = perSource.reduce((sum, r) => sum + r.added, 0);
-  return NextResponse.json({
-    success: true,
-    data: { added, sources: perSource.length, perSource },
-  });
 }

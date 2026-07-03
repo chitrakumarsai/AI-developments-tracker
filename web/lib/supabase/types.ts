@@ -42,4 +42,6 @@ export type SourceRow = {
   notes: string | null;
   added_on: string;
   last_fetched: string | null;
+  /** Postgres `interval` text (e.g. "1 day"). Drives scheduled-refresh due checks. */
+  refresh_interval: string;
 };
