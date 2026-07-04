@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
+  addCandidates,
   createCandidate,
   getCandidate,
   listSuggested,
@@ -54,6 +55,93 @@ function makeClient(opts?: { rows?: SourceCandidate[]; errorOn?: string }) {
 
   return { client, calls };
 }
+
+/**
+ * Fake for addCandidates: `select(col)` resolves directly to a row set (the
+ * dedupe reads), and `insert` records the bulk payload. Two tables are served.
+ */
+function makeBulkClient(opts?: {
+  candidateUrls?: string[];
+  sourceUrls?: string[];
+  errorOn?: "source_candidates" | "sources" | "insert";
+}) {
+  const inserts: Array<{ table: string; rows: unknown }> = [];
+
+  const client = {
+    from(table: string) {
+      return {
+        select(col: string) {
+          if (table === "source_candidates" && opts?.errorOn === "source_candidates") {
+            return Promise.resolve({ data: null, error: { message: "cand boom" } });
+          }
+          if (table === "sources" && opts?.errorOn === "sources") {
+            return Promise.resolve({ data: null, error: { message: "src boom" } });
+          }
+          const data =
+            col === "url"
+              ? (opts?.sourceUrls ?? []).map((url) => ({ url }))
+              : (opts?.candidateUrls ?? []).map((handle_or_url) => ({ handle_or_url }));
+          return Promise.resolve({ data, error: null });
+        },
+        insert(rows: unknown) {
+          inserts.push({ table, rows });
+          const error = opts?.errorOn === "insert" ? { message: "insert boom" } : null;
+          return Promise.resolve({ error });
+        },
+      };
+    },
+  } as unknown as SupabaseClient;
+
+  return { client, inserts };
+}
+
+describe("addCandidates", () => {
+  it("inserts new URLs and reports counts", async () => {
+    const { client, inserts } = makeBulkClient();
+    const result = await addCandidates(
+      [
+        { platform: "RSS", handleOrUrl: "https://a.example.com/feed" },
+        { platform: "RSS", handleOrUrl: "https://b.example.com/rss" },
+      ],
+      client,
+    );
+    expect(result).toEqual({ added: 2, skipped: 0 });
+    expect(inserts).toHaveLength(1);
+    expect((inserts[0].rows as unknown[]).length).toBe(2);
+  });
+
+  it("skips URLs already queued or already a live source (normalized)", async () => {
+    const { client, inserts } = makeBulkClient({
+      candidateUrls: ["https://a.example.com/feed"],
+      sourceUrls: ["https://b.example.com/rss/"],
+    });
+    const result = await addCandidates(
+      [
+        { platform: "RSS", handleOrUrl: "https://A.example.com/feed" }, // dupe of a candidate
+        { platform: "RSS", handleOrUrl: "https://b.example.com/rss" }, // dupe of a source
+        { platform: "RSS", handleOrUrl: "https://c.example.com/new" }, // fresh
+      ],
+      client,
+    );
+    expect(result).toEqual({ added: 1, skipped: 2 });
+    expect((inserts[0].rows as Array<{ handle_or_url: string }>)[0].handle_or_url).toBe(
+      "https://c.example.com/new",
+    );
+  });
+
+  it("no-ops on empty input without touching the DB", async () => {
+    const { client, inserts } = makeBulkClient();
+    expect(await addCandidates([], client)).toEqual({ added: 0, skipped: 0 });
+    expect(inserts).toHaveLength(0);
+  });
+
+  it("throws on DB error", async () => {
+    const { client } = makeBulkClient({ errorOn: "insert" });
+    await expect(
+      addCandidates([{ platform: "RSS", handleOrUrl: "https://x.example.com/feed" }], client),
+    ).rejects.toThrow(/insert boom/);
+  });
+});
 
 describe("createCandidate", () => {
   it("inserts a sanitized, suggested candidate", async () => {

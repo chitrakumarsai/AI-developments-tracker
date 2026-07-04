@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { listSuggested, type SourceCandidate } from "@/lib/candidates/persist";
 import { AddCandidateForm } from "@/components/sources/AddCandidateForm";
+import { ImportListForm } from "@/components/sources/ImportListForm";
 import { CandidateCard } from "@/components/sources/CandidateCard";
 
 // Reflects live database state; render per-request.
@@ -37,8 +38,15 @@ export default async function SourcesPage() {
       </header>
 
       <main className="flex flex-1 flex-col gap-6 py-6">
-        <section aria-label="Add a source">
-          <AddCandidateForm />
+        <section aria-label="Add a source" className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
+            <h2 className="text-xs uppercase tracking-[0.18em] text-faint">Add one</h2>
+            <AddCandidateForm />
+          </div>
+          <div className="flex flex-col gap-2">
+            <h2 className="text-xs uppercase tracking-[0.18em] text-faint">Paste a list</h2>
+            <ImportListForm />
+          </div>
         </section>
 
         <section aria-label="Rating queue" className="flex flex-1 flex-col">

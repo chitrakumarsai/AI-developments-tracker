@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getServerClient } from "../supabase/server";
 import type { IngestionType } from "../supabase/types";
 import { sanitizeText } from "../ingestion/sanitize";
+import { normalizeUrl } from "./extract";
 
 /** A discovered-but-not-yet-promoted source in the rating queue. */
 export type SourceCandidate = {
@@ -40,6 +41,60 @@ export async function createCandidate(
   if (error) {
     throw new Error(`Failed to add candidate: ${error.message}`);
   }
+}
+
+/**
+ * Bulk-add candidates from a pasted list. Dedupes against every URL already in
+ * the queue (any state) AND every live source, so a paste never re-proposes
+ * something we already know. Fields are sanitized (§12.7); URLs are validated
+ * for real only at promote time. Returns how many were added vs. skipped as
+ * duplicates. Injectable client for testing. Throws on DB error.
+ */
+export async function addCandidates(
+  inputs: NewCandidate[],
+  client: SupabaseClient = getServerClient(),
+): Promise<{ added: number; skipped: number }> {
+  if (inputs.length === 0) return { added: 0, skipped: 0 };
+
+  const [candRes, srcRes] = await Promise.all([
+    client.from("source_candidates").select("handle_or_url"),
+    client.from("sources").select("url"),
+  ]);
+  if (candRes.error) {
+    throw new Error(`Failed to load existing candidates: ${candRes.error.message}`);
+  }
+  if (srcRes.error) {
+    throw new Error(`Failed to load existing sources: ${srcRes.error.message}`);
+  }
+
+  const known = new Set<string>();
+  for (const row of (candRes.data ?? []) as Array<{ handle_or_url: string }>) {
+    known.add(normalizeUrl(row.handle_or_url));
+  }
+  for (const row of (srcRes.data ?? []) as Array<{ url: string }>) {
+    known.add(normalizeUrl(row.url));
+  }
+
+  const rows: Array<Record<string, unknown>> = [];
+  for (const input of inputs) {
+    const key = normalizeUrl(input.handleOrUrl);
+    if (known.has(key)) continue; // already queued, already a source, or a dupe within this paste
+    known.add(key);
+    rows.push({
+      platform: sanitizeText(input.platform),
+      handle_or_url: sanitizeText(input.handleOrUrl),
+      why_suggested: input.whySuggested ? sanitizeText(input.whySuggested) : null,
+      state: "suggested",
+    });
+  }
+
+  if (rows.length === 0) return { added: 0, skipped: inputs.length };
+
+  const { error } = await client.from("source_candidates").insert(rows);
+  if (error) {
+    throw new Error(`Failed to add candidates: ${error.message}`);
+  }
+  return { added: rows.length, skipped: inputs.length - rows.length };
 }
 
 /** The rating queue: candidates still awaiting a decision, newest first. */
