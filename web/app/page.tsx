@@ -154,9 +154,12 @@ export default async function Home({
           <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">
             AI Chronicles
           </h1>
-          <span className="text-xs uppercase tracking-[0.18em] text-faint">
-            Find the signal in AI
-          </span>
+          <div className="flex items-baseline gap-4 text-xs uppercase tracking-[0.18em]">
+            <span className="hidden text-faint sm:inline">Find the signal in AI</span>
+            <Link href="/sources" className="text-muted transition-colors hover:text-ink">
+              Sources
+            </Link>
+          </div>
         </div>
         <nav aria-label="Categories" className="mt-4 -mx-1 overflow-x-auto">
           <ul className="flex gap-1">
