@@ -11,7 +11,7 @@ import {
   type FeedWindow,
 } from "@/lib/feed/queries";
 import { feedHref, type FeedHrefParams } from "@/lib/feed/filterHref";
-import { platformForItem } from "@/lib/feed/platform";
+import { platformForItem, CURATED_PLATFORMS } from "@/lib/feed/platform";
 import { getSettings } from "@/lib/settings/persist";
 import { DEFAULT_SETTINGS } from "@/lib/settings/types";
 import type { ItemRow } from "@/lib/supabase/types";
@@ -34,6 +34,8 @@ type FeedListProps = {
   category?: string | null;
   /** Restrict to one source id; null/undefined shows all sources. */
   source?: string | null;
+  /** Restrict to one derived platform slug; null/undefined = all platforms. */
+  platform?: string | null;
   /** Restrict to items carrying this tag; null/undefined = no tag filter. */
   tag?: string | null;
   /** Free-text search across title + summary; null/undefined = no search. */
@@ -60,6 +62,7 @@ type FeedListProps = {
 export async function FeedList({
   category,
   source,
+  platform,
   tag,
   q,
   state,
@@ -76,6 +79,7 @@ export async function FeedList({
     sort,
     window,
     source,
+    platform,
     tag,
     q,
     state,
@@ -97,6 +101,7 @@ export async function FeedList({
     items = await getFeedItems({
       category,
       source,
+      platform,
       tag,
       q,
       state,
@@ -121,13 +126,16 @@ export async function FeedList({
   const sourceLabel = source
     ? (items[0] ? platformForItem(items[0]).label : null)
     : null;
+  const platformLabel = platform
+    ? (CURATED_PLATFORMS.find((p) => p.slug === platform)?.label ?? platform)
+    : null;
 
   if (items.length === 0) {
-    const isFiltered = Boolean(source || tag || q || state);
+    const isFiltered = Boolean(source || platform || tag || q || state);
     const scope = category ? `${sectionLabel ?? "this section"}` : "the feed";
     return (
       <>
-        <ActiveFilters context={context} sourceLabel={sourceLabel} />
+        <ActiveFilters context={context} sourceLabel={sourceLabel} platformLabel={platformLabel} />
         <Notice
           title="No matches."
           body={
@@ -146,7 +154,7 @@ export async function FeedList({
 
   return (
     <>
-      <ActiveFilters context={context} sourceLabel={sourceLabel} />
+      <ActiveFilters context={context} sourceLabel={sourceLabel} platformLabel={platformLabel} />
 
       <ul className="flex flex-col">
         {items.map((item) => (

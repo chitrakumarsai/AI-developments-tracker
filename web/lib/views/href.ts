@@ -1,4 +1,5 @@
 import { feedHref } from "../feed/filterHref";
+import { isCuratedPlatform } from "../feed/platform";
 import { FEED_STATES, type FeedSort, type FeedState, type FeedWindow } from "../feed/types";
 
 /** The filter dimensions a saved view can capture (mirrors the URL params). */
@@ -7,6 +8,7 @@ export type SavedFilters = {
   sort?: FeedSort;
   window?: FeedWindow;
   source?: string;
+  platform?: string;
   tag?: string;
   q?: string;
   state?: FeedState;
@@ -36,6 +38,9 @@ export function normalizeFilters(raw: unknown): SavedFilters {
     sort: SORTS.includes(o.sort as FeedSort) ? (o.sort as FeedSort) : undefined,
     window: WINDOWS.includes(o.window as FeedWindow) ? (o.window as FeedWindow) : undefined,
     source: str(o.source),
+    platform: str(o.platform) && isCuratedPlatform(str(o.platform) as string)
+      ? str(o.platform)
+      : undefined,
     tag: str(o.tag)?.slice(0, MAX_TAG),
     q: str(o.q)?.slice(0, MAX_Q),
     state: FEED_STATES.includes(o.state as FeedState) ? (o.state as FeedState) : undefined,
@@ -50,6 +55,7 @@ export function viewToHref(raw: unknown): string {
     sort: f.sort,
     window: f.window,
     source: f.source ?? null,
+    platform: f.platform ?? null,
     tag: f.tag ?? null,
     q: f.q ?? null,
     state: f.state ?? null,

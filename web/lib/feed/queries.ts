@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getServerClient } from "../supabase/server";
 import type { ItemRow } from "../supabase/types";
 import { rankItems } from "../ranking/score";
+import { platformFromSourceName } from "./platform";
 import { DEFAULT_WINDOW, type FeedSort, type FeedState, type FeedWindow } from "./types";
 
 // Re-export the shared value types so existing importers of "@/lib/feed/queries"
@@ -68,6 +69,8 @@ export type FeedQuery = {
   category?: string | null;
   /** Restrict to one source (`items.source_id`); null/undefined = all sources. */
   source?: string | null;
+  /** Restrict to one derived platform slug (e.g. "github"); null/undefined = all. */
+  platform?: string | null;
   /** Restrict to items carrying this tag; null/undefined = no tag filter. */
   tag?: string | null;
   /** Free-text search across title + summary; null/undefined = no search. */
@@ -144,6 +147,28 @@ export function capPerSourceDay(items: ItemRow[], cap: number | null): ItemRow[]
 }
 
 /**
+ * Resolve a derived platform slug (github, hugging-face, reddit, hacker-news,
+ * arXiv) to the set of source ids on that platform. Platform isn't a column —
+ * it's derived from the source NAME — so we map every source through the same
+ * `platformFromSourceName` logic the card badges use and collect the matches.
+ * This lets the feed query filter by platform at the DB level (`source_id in …`)
+ * instead of post-filtering a recency-limited pool, which would miss platforms
+ * that aren't in the most-recent N. Returns [] when nothing matches.
+ */
+export async function resolvePlatformSourceIds(
+  platformSlug: string,
+  client: SupabaseClient,
+): Promise<string[]> {
+  const { data, error } = await client.from("sources").select("id, name");
+  if (error) {
+    throw new Error(`Failed to resolve platform sources: ${error.message}`);
+  }
+  return ((data ?? []) as Array<{ id: string; name: string | null }>)
+    .filter((s) => platformFromSourceName(s.name)?.slug === platformSlug)
+    .map((s) => s.id);
+}
+
+/**
  * Load feed items. Default order is relevance (recency + popularity), which
  * interleaves every source into one ranked list. `recent`/`metric` are explicit
  * overrides. `category`, `source`, and `tag` narrow the set (all combine); the
@@ -157,6 +182,7 @@ export async function getFeedItems(
   {
     category,
     source,
+    platform = null,
     tag,
     q,
     state,
@@ -182,6 +208,14 @@ export async function getFeedItems(
     includeKeywords.length > 0 ||
     excludeKeywords.length > 0;
 
+  // Platform is derived from the source name, so resolve it to source ids and
+  // filter at the DB level (below) rather than post-filtering a recency pool.
+  let platformSourceIds: string[] | null = null;
+  if (platform) {
+    platformSourceIds = await resolvePlatformSourceIds(platform, client);
+    if (platformSourceIds.length === 0) return []; // no sources on this platform
+  }
+
   // Embed the source name so the card can label the item's platform accurately.
   let query = client.from("items").select("*, source:sources(name)");
   if (category) {
@@ -189,6 +223,9 @@ export async function getFeedItems(
   }
   if (source) {
     query = query.eq("source_id", source);
+  }
+  if (platformSourceIds) {
+    query = query.in("source_id", platformSourceIds);
   }
   if (tag) {
     // Postgres array containment: rows whose `tags` include this value.
@@ -243,5 +280,6 @@ export async function getFeedItems(
   // Unchecked cast: the untyped client returns any[]. Replace with generated
   // types once `supabase gen types typescript --local` is in the toolchain.
   const rows = (data ?? []) as unknown as ItemRow[];
-  return capPerSourceDay(applyContentFilters(rows, contentFilters), cap).slice(0, limit);
+  const filtered = applyContentFilters(rows, contentFilters);
+  return capPerSourceDay(filtered, cap).slice(0, limit);
 }

@@ -33,6 +33,21 @@ const HOST_MAP: ReadonlyArray<readonly [suffix: string, label: string, slug: str
   ["arxiv.org", "arXiv", "arxiv"],
 ];
 
+/**
+ * The curated platforms offered in the feed's platform picker — the same set
+ * `platformForItem` recognises, so a chip's slug always matches item slugs.
+ */
+export const CURATED_PLATFORMS: ReadonlyArray<Platform> = HOST_MAP.map(
+  ([, label, slug]) => ({ label, slug }),
+);
+
+const CURATED_SLUGS: ReadonlySet<string> = new Set(CURATED_PLATFORMS.map((p) => p.slug));
+
+/** True when a slug is one of the curated platform filters (guards URL input). */
+export function isCuratedPlatform(slug: string): boolean {
+  return CURATED_SLUGS.has(slug);
+}
+
 /** Title-case a bare domain label, e.g. "nvidia" → "Nvidia", "openai" → "Openai". */
 function titleCase(word: string): string {
   if (!word) return "";

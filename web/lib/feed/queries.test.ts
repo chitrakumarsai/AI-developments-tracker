@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   applyContentFilters,
   capPerSourceDay,
+  resolvePlatformSourceIds,
   getFeedItems,
   sanitizeSearch,
 } from "./queries";
@@ -305,5 +306,45 @@ describe("applyContentFilters", () => {
 
   it("no-ops when no filters are set", () => {
     expect(applyContentFilters(base, {})).toHaveLength(3);
+  });
+});
+
+describe("resolvePlatformSourceIds", () => {
+  /** Fake client whose `sources` select resolves to a fixed name list. */
+  function sourcesClient(rows: Array<{ id: string; name: string | null }>) {
+    return {
+      from() {
+        return { select: () => Promise.resolve({ data: rows, error: null }) };
+      },
+    } as unknown as SupabaseClient;
+  }
+
+  const sources = [
+    { id: "s-gh", name: "GitHub — Notable AI repos" },
+    { id: "s-hf1", name: "Hugging Face — Daily Papers" },
+    { id: "s-hf2", name: "Hugging Face — Trending models" },
+    { id: "s-hn", name: "Hacker News — AI stories" },
+    { id: "s-blog", name: "NVIDIA — Developer Blog" },
+  ];
+
+  it("maps a platform slug to every source on that platform (by source name)", async () => {
+    const client = sourcesClient(sources);
+    expect(await resolvePlatformSourceIds("hugging-face", client)).toEqual(["s-hf1", "s-hf2"]);
+    expect(await resolvePlatformSourceIds("github", client)).toEqual(["s-gh"]);
+    expect(await resolvePlatformSourceIds("hacker-news", client)).toEqual(["s-hn"]);
+  });
+
+  it("returns [] when no source is on that platform", async () => {
+    const client = sourcesClient(sources);
+    expect(await resolvePlatformSourceIds("reddit", client)).toEqual([]);
+  });
+
+  it("throws on DB error", async () => {
+    const client = {
+      from: () => ({
+        select: () => Promise.resolve({ data: null, error: { message: "boom" } }),
+      }),
+    } as unknown as SupabaseClient;
+    await expect(resolvePlatformSourceIds("github", client)).rejects.toThrow(/boom/);
   });
 });

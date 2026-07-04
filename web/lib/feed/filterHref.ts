@@ -13,6 +13,8 @@ export type FeedHrefParams = {
   window?: FeedWindow;
   /** Active source id (`items.source_id`); null/absent = no source filter. */
   source?: string | null;
+  /** Active platform slug (e.g. "github"); null/absent = no platform filter. */
+  platform?: string | null;
   /** Active tag; null/absent = no tag filter. Encoded safely (untrusted text). */
   tag?: string | null;
   /** Free-text search query; null/absent = no search. Encoded safely (untrusted text). */
@@ -35,6 +37,7 @@ export function feedHref(params: FeedHrefParams = {}): string {
   else if (params.sort === "recent") sp.set("sort", "recent");
   if (params.window && params.window !== DEFAULT_WINDOW) sp.set("window", params.window);
   if (params.source) sp.set("source", params.source);
+  if (params.platform) sp.set("platform", params.platform);
   if (params.tag) sp.set("tag", params.tag);
   if (params.q) sp.set("q", params.q);
   if (params.state) sp.set("state", params.state);

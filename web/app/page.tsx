@@ -13,6 +13,7 @@ import {
   type FeedWindow,
 } from "@/lib/feed/queries";
 import { FEED_STATES } from "@/lib/feed/types";
+import { CURATED_PLATFORMS, isCuratedPlatform } from "@/lib/feed/platform";
 import { feedHref } from "@/lib/feed/filterHref";
 import { listViews, type SavedView } from "@/lib/views/persist";
 import type { SavedFilters } from "@/lib/views/href";
@@ -64,6 +65,7 @@ export default async function Home({
     sort?: string;
     window?: string;
     source?: string;
+    platform?: string;
     tag?: string;
     q?: string;
     state?: string;
@@ -75,6 +77,7 @@ export default async function Home({
     sort: sortParam,
     window: windowParam,
     source: sourceParam,
+    platform: platformParam,
     tag: tagParam,
     q: qParam,
     state: stateParam,
@@ -83,6 +86,9 @@ export default async function Home({
 
   // Untrusted URL params: keep a non-empty source id; trim + length-cap the tag.
   const source = sourceParam?.trim() ? sourceParam.trim() : undefined;
+  // Only accept a known curated platform slug (guards against hostile URLs).
+  const platform =
+    platformParam && isCuratedPlatform(platformParam) ? platformParam : undefined;
   const tag = tagParam?.trim() ? tagParam.trim().slice(0, MAX_TAG_LENGTH) : undefined;
   const q = qParam?.trim() ? qParam.trim().slice(0, MAX_SEARCH_LENGTH) : undefined;
   const state: FeedState | undefined = STATE_KEYS.has(stateParam ?? "")
@@ -120,6 +126,7 @@ export default async function Home({
       : []),
     ...(window !== DEFAULT_WINDOW ? [{ name: "window", value: window }] : []),
     ...(source ? [{ name: "source", value: source }] : []),
+    ...(platform ? [{ name: "platform", value: platform }] : []),
     ...(tag ? [{ name: "tag", value: tag }] : []),
     ...(state ? [{ name: "state", value: state }] : []),
   ];
@@ -132,12 +139,13 @@ export default async function Home({
     sort: sort !== "relevant" ? sort : undefined,
     window: window !== DEFAULT_WINDOW ? window : undefined,
     source,
+    platform,
     tag,
     q,
     state,
   };
   const hasActiveFilters =
-    Boolean(source || tag || q || state) ||
+    Boolean(source || platform || tag || q || state) ||
     active.slug !== "all" ||
     sort !== "relevant" ||
     window !== DEFAULT_WINDOW;
@@ -177,6 +185,7 @@ export default async function Home({
                       sort: "relevant",
                       window,
                       source,
+                      platform,
                       tag,
                       q,
                       state,
@@ -189,6 +198,60 @@ export default async function Home({
                     }`}
                   >
                     {section.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+        <nav aria-label="Platform" className="mt-2 -mx-1 overflow-x-auto">
+          <ul className="flex items-center gap-1 text-xs">
+            <li className="pl-1 pr-1 text-faint">Platform</li>
+            <li>
+              <Link
+                href={feedHref({
+                  section: active.slug,
+                  sort,
+                  window,
+                  source,
+                  platform: null,
+                  tag,
+                  q,
+                  state,
+                })}
+                aria-current={!platform ? "true" : undefined}
+                className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] px-2.5 font-medium transition-colors ${
+                  !platform
+                    ? "bg-ink text-surface"
+                    : "text-muted hover:text-ink hover:bg-rule/40"
+                }`}
+              >
+                All
+              </Link>
+            </li>
+            {CURATED_PLATFORMS.map((p) => {
+              const isActive = platform === p.slug;
+              return (
+                <li key={p.slug}>
+                  <Link
+                    href={feedHref({
+                      section: active.slug,
+                      sort,
+                      window,
+                      source,
+                      platform: p.slug,
+                      tag,
+                      q,
+                      state,
+                    })}
+                    aria-current={isActive ? "true" : undefined}
+                    className={`inline-flex min-h-[36px] items-center whitespace-nowrap rounded-[var(--radius-sm)] px-2.5 font-medium transition-colors ${
+                      isActive
+                        ? "bg-ink text-surface"
+                        : "text-muted hover:text-ink hover:bg-rule/40"
+                    }`}
+                  >
+                    {p.label}
                   </Link>
                 </li>
               );
@@ -252,6 +315,7 @@ export default async function Home({
                       sort,
                       window: option.key,
                       source,
+                      platform,
                       tag,
                       q,
                       state,
@@ -280,6 +344,7 @@ export default async function Home({
                       sort: option.key,
                       window,
                       source,
+                      platform,
                       tag,
                       q,
                       state,
@@ -309,6 +374,7 @@ export default async function Home({
                         sort,
                         window,
                         source,
+                        platform,
                         tag,
                         q,
                         state: option.key ?? null,
@@ -328,12 +394,13 @@ export default async function Home({
             </ul>
           </nav>
           <Suspense
-            key={`${active.slug}:${limit}:${sort}:${window}:${source ?? ""}:${tag ?? ""}:${q ?? ""}:${state ?? ""}`}
+            key={`${active.slug}:${limit}:${sort}:${window}:${source ?? ""}:${platform ?? ""}:${tag ?? ""}:${q ?? ""}:${state ?? ""}`}
             fallback={<FeedFallback />}
           >
             <FeedList
               category={active.category}
               source={source}
+              platform={platform}
               tag={tag}
               q={q}
               state={state}

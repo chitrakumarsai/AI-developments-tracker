@@ -7,6 +7,8 @@ type ActiveFiltersProps = {
   context: FeedHrefParams;
   /** Human label for the active source (resolved from loaded items). */
   sourceLabel?: string | null;
+  /** Human label for the active platform (e.g. "GitHub"). */
+  platformLabel?: string | null;
 };
 
 const PILL =
@@ -24,12 +26,13 @@ const STATE_LABELS: Record<string, string> = {
  * Each pill's tap target clears exactly that one filter (preserving the rest and
  * resetting paging); "Clear all" drops both. Nothing renders when unfiltered.
  */
-export function ActiveFilters({ context, sourceLabel }: ActiveFiltersProps) {
+export function ActiveFilters({ context, sourceLabel, platformLabel }: ActiveFiltersProps) {
   const hasSource = Boolean(context.source);
+  const hasPlatform = Boolean(context.platform);
   const hasTag = Boolean(context.tag);
   const hasQuery = Boolean(context.q);
   const hasState = Boolean(context.state);
-  if (!hasSource && !hasTag && !hasQuery && !hasState) return null;
+  if (!hasSource && !hasPlatform && !hasTag && !hasQuery && !hasState) return null;
 
   return (
     <div
@@ -56,6 +59,17 @@ export function ActiveFilters({ context, sourceLabel }: ActiveFiltersProps) {
           className={`${PILL} bg-accent/10 text-accent hover:bg-accent/20`}
         >
           {sourceLabel ?? "This source"}
+          <span aria-hidden="true">×</span>
+        </Link>
+      ) : null}
+
+      {hasPlatform ? (
+        <Link
+          href={feedHref({ ...context, platform: null, show: null })}
+          aria-label={`Clear platform filter${platformLabel ? `: ${platformLabel}` : ""}`}
+          className={`${PILL} bg-accent/10 text-accent hover:bg-accent/20`}
+        >
+          {platformLabel ?? context.platform}
           <span aria-hidden="true">×</span>
         </Link>
       ) : null}
