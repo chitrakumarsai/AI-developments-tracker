@@ -7,6 +7,7 @@ import {
   INITIAL_FEED_LIMIT,
   MAX_FEED_LIMIT,
   type FeedSort,
+  type FeedState,
   type FeedWindow,
 } from "@/lib/feed/queries";
 import { feedHref, type FeedHrefParams } from "@/lib/feed/filterHref";
@@ -35,6 +36,8 @@ type FeedListProps = {
   tag?: string | null;
   /** Free-text search across title + summary; null/undefined = no search. */
   q?: string | null;
+  /** Feedback/read-state filter; null/undefined = no state filter. */
+  state?: FeedState | null;
   /** Section label, used only for the empty-state copy. */
   sectionLabel?: string;
   /** Active section slug, used to build the Show more link. */
@@ -57,6 +60,7 @@ export async function FeedList({
   source,
   tag,
   q,
+  state,
   sectionLabel,
   sectionSlug = "all",
   limit = INITIAL_FEED_LIMIT,
@@ -65,11 +69,19 @@ export async function FeedList({
 }: FeedListProps = {}) {
   // Shared filter context: every in-feed link is built from this so the URL
   // stays the single source of truth and filters combine cleanly.
-  const context: FeedHrefParams = { section: sectionSlug, sort, window, source, tag, q };
+  const context: FeedHrefParams = {
+    section: sectionSlug,
+    sort,
+    window,
+    source,
+    tag,
+    q,
+    state,
+  };
 
   let items: ItemRow[] = [];
   try {
-    items = await getFeedItems({ category, source, tag, q, sort, window, limit });
+    items = await getFeedItems({ category, source, tag, q, state, sort, window, limit });
   } catch {
     return (
       <Notice
@@ -85,7 +97,7 @@ export async function FeedList({
     : null;
 
   if (items.length === 0) {
-    const isFiltered = Boolean(source || tag || q);
+    const isFiltered = Boolean(source || tag || q || state);
     const scope = category ? `${sectionLabel ?? "this section"}` : "the feed";
     return (
       <>

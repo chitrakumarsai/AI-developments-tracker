@@ -8,8 +8,10 @@ import {
   MAX_FEED_LIMIT,
   DEFAULT_WINDOW,
   type FeedSort,
+  type FeedState,
   type FeedWindow,
 } from "@/lib/feed/queries";
+import { FEED_STATES } from "@/lib/feed/types";
 import { feedHref } from "@/lib/feed/filterHref";
 
 /** Sections whose items carry a popularity metric, so a Top-starred sort makes sense. */
@@ -28,6 +30,15 @@ const WINDOW_OPTIONS: ReadonlyArray<{ key: FeedWindow; label: string }> = [
   { key: "all", label: "All" },
 ];
 const WINDOW_KEYS: ReadonlySet<string> = new Set(WINDOW_OPTIONS.map((w) => w.key));
+
+/** Feedback/read-state segmented control. `undefined` key = the default "All". */
+const STATE_OPTIONS: ReadonlyArray<{ key: FeedState | undefined; label: string }> = [
+  { key: undefined, label: "All" },
+  { key: "unread", label: "Unread" },
+  { key: "liked", label: "Liked" },
+  { key: "hide-down", label: "Hide 👎" },
+];
+const STATE_KEYS: ReadonlySet<string> = new Set(FEED_STATES);
 
 // The feed reflects live database state, so render per-request (not at build).
 export const dynamic = "force-dynamic";
@@ -51,6 +62,7 @@ export default async function Home({
     source?: string;
     tag?: string;
     q?: string;
+    state?: string;
   }>;
 }) {
   const {
@@ -61,6 +73,7 @@ export default async function Home({
     source: sourceParam,
     tag: tagParam,
     q: qParam,
+    state: stateParam,
   } = await searchParams;
   const active = sectionForSlug(sectionParam);
 
@@ -68,6 +81,9 @@ export default async function Home({
   const source = sourceParam?.trim() ? sourceParam.trim() : undefined;
   const tag = tagParam?.trim() ? tagParam.trim().slice(0, MAX_TAG_LENGTH) : undefined;
   const q = qParam?.trim() ? qParam.trim().slice(0, MAX_SEARCH_LENGTH) : undefined;
+  const state: FeedState | undefined = STATE_KEYS.has(stateParam ?? "")
+    ? (stateParam as FeedState)
+    : undefined;
   const requested = Number.parseInt(showParam ?? "", 10);
   const limit = Number.isNaN(requested)
     ? INITIAL_FEED_LIMIT
@@ -101,6 +117,7 @@ export default async function Home({
     ...(window !== DEFAULT_WINDOW ? [{ name: "window", value: window }] : []),
     ...(source ? [{ name: "source", value: source }] : []),
     ...(tag ? [{ name: "tag", value: tag }] : []),
+    ...(state ? [{ name: "state", value: state }] : []),
   ];
 
   return (
@@ -128,6 +145,7 @@ export default async function Home({
                       source,
                       tag,
                       q,
+                      state,
                     })}
                     aria-current={isActive ? "page" : undefined}
                     className={`inline-block rounded-[var(--radius-sm)] px-3 py-1.5 text-sm transition-colors ${
@@ -192,6 +210,7 @@ export default async function Home({
                       source,
                       tag,
                       q,
+                      state,
                     })}
                     aria-current={isActive ? "true" : undefined}
                     className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] px-2.5 font-medium transition-colors ${
@@ -219,6 +238,7 @@ export default async function Home({
                       source,
                       tag,
                       q,
+                      state,
                     })}
                     aria-current={isActive ? "true" : undefined}
                     className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] px-2.5 font-medium transition-colors ${
@@ -233,8 +253,38 @@ export default async function Home({
               })}
             </div>
           </div>
+          <nav aria-label="Feedback filter" className="mt-3 -mx-1 overflow-x-auto">
+            <ul className="flex gap-1 text-xs">
+              {STATE_OPTIONS.map((option) => {
+                const isActive = state === option.key;
+                return (
+                  <li key={option.label}>
+                    <Link
+                      href={feedHref({
+                        section: active.slug,
+                        sort,
+                        window,
+                        source,
+                        tag,
+                        q,
+                        state: option.key ?? null,
+                      })}
+                      aria-current={isActive ? "true" : undefined}
+                      className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] px-2.5 font-medium transition-colors ${
+                        isActive
+                          ? "bg-ink text-surface"
+                          : "text-muted hover:text-ink hover:bg-rule/40"
+                      }`}
+                    >
+                      {option.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
           <Suspense
-            key={`${active.slug}:${limit}:${sort}:${window}:${source ?? ""}:${tag ?? ""}:${q ?? ""}`}
+            key={`${active.slug}:${limit}:${sort}:${window}:${source ?? ""}:${tag ?? ""}:${q ?? ""}:${state ?? ""}`}
             fallback={<FeedFallback />}
           >
             <FeedList
@@ -242,6 +292,7 @@ export default async function Home({
               source={source}
               tag={tag}
               q={q}
+              state={state}
               sectionLabel={active.label}
               sectionSlug={active.slug}
               limit={limit}

@@ -8,6 +8,8 @@
 
 export type IngestionType = "rss" | "api" | "scrape" | "manual";
 export type SourceStatus = "active" | "paused" | "archived";
+/** Thumbs vote on an item (matches the `feedback_value` Postgres enum). */
+export type FeedbackValue = "up" | "down";
 
 export type ItemRow = {
   id: string;
@@ -26,6 +28,8 @@ export type ItemRow = {
   metric: number | null;
   /** GitHub forks — a second, additive popularity signal; null for other sources. */
   forks: number | null;
+  /** Current thumbs vote (denormalized from the feedback log); null = no vote. */
+  feedback_value: FeedbackValue | null;
   /** Embedded source identity (from a join); used to label the item's platform. */
   source?: { name: string | null } | null;
 };

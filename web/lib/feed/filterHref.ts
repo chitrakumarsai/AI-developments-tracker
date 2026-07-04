@@ -1,4 +1,4 @@
-import { DEFAULT_WINDOW, type FeedSort, type FeedWindow } from "./types";
+import { DEFAULT_WINDOW, type FeedSort, type FeedState, type FeedWindow } from "./types";
 
 /**
  * The complete, shareable feed filter state expressed as URL params. Every
@@ -17,6 +17,8 @@ export type FeedHrefParams = {
   tag?: string | null;
   /** Free-text search query; null/absent = no search. Encoded safely (untrusted text). */
   q?: string | null;
+  /** Feedback/read-state filter; null/absent = no state filter. */
+  state?: FeedState | null;
   /** Paging size; null/absent = default first page. */
   show?: number | null;
 };
@@ -35,6 +37,7 @@ export function feedHref(params: FeedHrefParams = {}): string {
   if (params.source) sp.set("source", params.source);
   if (params.tag) sp.set("tag", params.tag);
   if (params.q) sp.set("q", params.q);
+  if (params.state) sp.set("state", params.state);
   if (params.show != null) sp.set("show", String(params.show));
   const qs = sp.toString();
   return qs ? `/?${qs}` : "/";

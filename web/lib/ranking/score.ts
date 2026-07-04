@@ -15,8 +15,20 @@
  * Pure and deterministic: `now` is injected so tests are stable.
  */
 
+import type { FeedbackValue } from "../supabase/types";
+
 export const RECENCY_WEIGHT = 0.5;
 export const POPULARITY_WEIGHT = 0.5;
+
+/**
+ * Personalization multiplier applied to the base rank score (§8.2). A thumbs-up
+ * lifts an item; a thumbs-down sinks it (without fully hiding it — that's the
+ * `?state=hide-down` filter's job). No vote leaves the score untouched.
+ */
+export const FEEDBACK_MULTIPLIER: Record<FeedbackValue, number> = {
+  up: 1.25,
+  down: 0.5,
+};
 
 const MS_PER_DAY = 86_400_000;
 
@@ -69,7 +81,14 @@ export type RankableItem = {
   /** Second additive popularity signal (GitHub forks); absent → +0. */
   forks?: number | null;
   published_at: string | null;
+  /** Current thumbs vote; scales the score (see FEEDBACK_MULTIPLIER). Absent → ×1. */
+  feedback_value?: FeedbackValue | null;
 };
+
+/** Score multiplier from the item's current vote; no vote → 1 (unchanged). */
+function feedbackMultiplier(value: FeedbackValue | null | undefined): number {
+  return value ? FEEDBACK_MULTIPLIER[value] : 1;
+}
 
 /**
  * Effective popularity for ranking: `metric + forks` (each treated as 0 when
@@ -108,7 +127,8 @@ export function rankItems<T extends RankableItem>(
     .map((item, index) => {
       const recency = recencyScore(item.published_at, now, windowDays);
       const popularity = popularityScore(effectiveMetric(item), sourceMax.get(item.source_id));
-      return { item, index, score: rankScore(recency, popularity) };
+      const base = rankScore(recency, popularity);
+      return { item, index, score: base * feedbackMultiplier(item.feedback_value) };
     })
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .map((ranked) => ranked.item);

@@ -18,3 +18,14 @@ export type FeedWindow = "today" | "week" | "month" | "all";
 
 /** Default window: one month of history, per the user's follow-the-field cadence. */
 export const DEFAULT_WINDOW: FeedWindow = "month";
+
+/**
+ * Feedback/read-state filter (§8.3).
+ * - `unread` = items not yet opened.
+ * - `liked` = items thumbed up.
+ * - `hide-down` = everything except items thumbed down.
+ */
+export type FeedState = "unread" | "liked" | "hide-down";
+
+/** The valid feedback-state tokens, for validating an untrusted URL param. */
+export const FEED_STATES: readonly FeedState[] = ["unread", "liked", "hide-down"];

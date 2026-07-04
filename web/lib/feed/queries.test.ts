@@ -21,6 +21,7 @@ function item(partial: Partial<ItemRow>): ItemRow {
     fetched_at: "2026-07-01T00:00:00Z",
     metric: null,
     forks: null,
+    feedback_value: null,
     ...partial,
   };
 }
@@ -55,16 +56,23 @@ function makeClient(rows: ItemRow[]): SupabaseClient {
       return builder;
     },
     or(expr: string) {
-      // Parse `col.ilike.*needle*,col2.ilike.*needle*` into (column, needle)
-      // pairs and keep rows where ANY branch matches (case-insensitive).
+      // Keep rows where ANY comma-separated branch matches. Supports the three
+      // operator forms getFeedItems emits: `col.ilike.*needle*`, `col.is.null`,
+      // and `col.eq.value`.
       const branches = expr.split(",").map((clause) => {
-        const [col, , pattern] = clause.split(".");
-        return { col, needle: pattern.replace(/\*/g, "").toLowerCase() };
+        const [col, op, ...rest] = clause.split(".");
+        return { col, op, arg: rest.join(".") };
       });
       data = data.filter((r) =>
-        branches.some(({ col, needle }) => {
+        branches.some(({ col, op, arg }) => {
           const v = (r as unknown as Record<string, unknown>)[col];
-          return typeof v === "string" && v.toLowerCase().includes(needle);
+          if (op === "ilike") {
+            const needle = arg.replace(/\*/g, "").toLowerCase();
+            return typeof v === "string" && v.toLowerCase().includes(needle);
+          }
+          if (op === "is") return arg === "null" ? v == null : false;
+          if (op === "eq") return v === arg;
+          return false;
         }),
       );
       return builder;
@@ -166,6 +174,41 @@ describe("getFeedItems filtering", () => {
     ]);
 
     const result = await getFeedItems({ ...RECENT, q: "()%_" }, client);
+
+    expect(result.map((r) => r.id).sort()).toEqual(["a", "b"]);
+  });
+
+  it("restricts to unread items when state=unread", async () => {
+    const client = makeClient([
+      item({ id: "a", read_state: false }),
+      item({ id: "b", read_state: true }),
+    ]);
+
+    const result = await getFeedItems({ ...RECENT, state: "unread" }, client);
+
+    expect(result.map((r) => r.id)).toEqual(["a"]);
+  });
+
+  it("restricts to thumbs-up items when state=liked", async () => {
+    const client = makeClient([
+      item({ id: "a", feedback_value: "up" }),
+      item({ id: "b", feedback_value: "down" }),
+      item({ id: "c", feedback_value: null }),
+    ]);
+
+    const result = await getFeedItems({ ...RECENT, state: "liked" }, client);
+
+    expect(result.map((r) => r.id)).toEqual(["a"]);
+  });
+
+  it("drops only thumbs-down items when state=hide-down (keeps null + up)", async () => {
+    const client = makeClient([
+      item({ id: "a", feedback_value: null }),
+      item({ id: "b", feedback_value: "up" }),
+      item({ id: "c", feedback_value: "down" }),
+    ]);
+
+    const result = await getFeedItems({ ...RECENT, state: "hide-down" }, client);
 
     expect(result.map((r) => r.id).sort()).toEqual(["a", "b"]);
   });

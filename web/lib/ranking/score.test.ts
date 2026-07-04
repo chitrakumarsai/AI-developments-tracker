@@ -110,4 +110,40 @@ describe("rankItems", () => {
     rankItems(items, NOW, 30);
     expect(items).toEqual(copy);
   });
+
+  it("boosts a thumbs-up item above an identical un-voted one", () => {
+    const liked = {
+      source_id: "arxiv",
+      metric: null,
+      published_at: daysAgo(5),
+      feedback_value: "up" as const,
+    };
+    const neutral = { source_id: "arxiv", metric: null, published_at: daysAgo(5) };
+    const ranked = rankItems([neutral, liked], NOW, 30);
+    expect(ranked[0]).toBe(liked);
+  });
+
+  it("sinks a thumbs-down item below an identical un-voted one", () => {
+    const disliked = {
+      source_id: "arxiv",
+      metric: null,
+      published_at: daysAgo(5),
+      feedback_value: "down" as const,
+    };
+    const neutral = { source_id: "arxiv", metric: null, published_at: daysAgo(5) };
+    const ranked = rankItems([disliked, neutral], NOW, 30);
+    expect(ranked[0]).toBe(neutral);
+  });
+
+  it("lets a thumbs-up lift an older item over a slightly fresher un-voted one", () => {
+    const likedOlder = {
+      source_id: "arxiv",
+      metric: null,
+      published_at: daysAgo(6),
+      feedback_value: "up" as const,
+    };
+    const freshNeutral = { source_id: "arxiv", metric: null, published_at: daysAgo(5) };
+    const ranked = rankItems([freshNeutral, likedOlder], NOW, 30);
+    expect(ranked[0]).toBe(likedOlder);
+  });
 });

@@ -41,6 +41,13 @@ describe("feedHref", () => {
     expect(feedHref({ q: null })).toBe("/");
   });
 
+  it("sets the feedback/read state param", () => {
+    expect(feedHref({ state: "unread" })).toBe("/?state=unread");
+    expect(feedHref({ state: "liked" })).toBe("/?state=liked");
+    expect(feedHref({ state: "hide-down" })).toBe("/?state=hide-down");
+    expect(feedHref({ state: null })).toBe("/");
+  });
+
   it("combines multiple filters in a stable order", () => {
     const href = feedHref({
       section: "social",

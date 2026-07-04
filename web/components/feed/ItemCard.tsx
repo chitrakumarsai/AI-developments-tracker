@@ -4,6 +4,8 @@ import type { ItemRow } from "@/lib/supabase/types";
 import { platformForItem } from "@/lib/feed/platform";
 import { feedHref, type FeedHrefParams } from "@/lib/feed/filterHref";
 import { Abstract } from "./Abstract";
+import { FeedbackControls } from "./FeedbackControls";
+import { OpenAtSourceLink } from "./OpenAtSourceLink";
 
 /** Cap tag chips per card so a heavily-tagged item doesn't crowd the layout. */
 const MAX_TAG_CHIPS = 4;
@@ -88,14 +90,13 @@ export function ItemCard({ item, context = {} }: ItemCardProps) {
       </div>
 
       <h2 className="mt-2 font-display text-lg leading-snug text-ink">
-        <a
-          href={item.url}
-          target="_blank"
-          rel="noopener noreferrer"
+        <OpenAtSourceLink
+          itemId={item.id}
+          url={item.url}
           className="transition-colors hover:text-accent"
         >
           {item.title}
-        </a>
+        </OpenAtSourceLink>
       </h2>
 
       {item.summary ? <Abstract text={item.summary} /> : null}
@@ -131,15 +132,17 @@ export function ItemCard({ item, context = {} }: ItemCardProps) {
             <> · undated</>
           )}
         </span>
-        <a
-          href={item.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={`Open “${item.title}” at the source`}
-          className="inline-flex min-h-[44px] shrink-0 items-center font-medium text-muted transition-colors hover:text-accent"
-        >
-          Read&nbsp;&rarr;
-        </a>
+        <div className="flex shrink-0 items-center gap-2">
+          <FeedbackControls itemId={item.id} initialValue={item.feedback_value} />
+          <OpenAtSourceLink
+            itemId={item.id}
+            url={item.url}
+            aria-label={`Open “${item.title}” at the source`}
+            className="inline-flex min-h-[44px] items-center font-medium text-muted transition-colors hover:text-accent"
+          >
+            Read&nbsp;&rarr;
+          </OpenAtSourceLink>
+        </div>
       </div>
     </article>
   );

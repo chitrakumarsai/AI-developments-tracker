@@ -5,12 +5,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getServerClient } from "../supabase/server";
 import type { ItemRow } from "../supabase/types";
 import { rankItems } from "../ranking/score";
-import { DEFAULT_WINDOW, type FeedSort, type FeedWindow } from "./types";
+import { DEFAULT_WINDOW, type FeedSort, type FeedState, type FeedWindow } from "./types";
 
 // Re-export the shared value types so existing importers of "@/lib/feed/queries"
 // keep working; the definitions now live in the client-safe ./types module.
 export { DEFAULT_WINDOW };
-export type { FeedSort, FeedWindow };
+export type { FeedSort, FeedState, FeedWindow };
 
 export const DEFAULT_FEED_LIMIT = 50;
 export const MAX_FEED_LIMIT = 100;
@@ -72,6 +72,8 @@ export type FeedQuery = {
   tag?: string | null;
   /** Free-text search across title + summary; null/undefined = no search. */
   q?: string | null;
+  /** Feedback/read-state filter; null/undefined = no state filter. */
+  state?: FeedState | null;
   sort?: FeedSort;
   window?: FeedWindow;
   limit?: number;
@@ -93,6 +95,7 @@ export async function getFeedItems(
     source,
     tag,
     q,
+    state,
     sort = "relevant",
     window = DEFAULT_WINDOW,
     limit = INITIAL_FEED_LIMIT,
@@ -121,6 +124,15 @@ export async function getFeedItems(
       // sanitized above so it can't break the or()/LIKE grammar.
       query = query.or(`title.ilike.*${needle}*,summary.ilike.*${needle}*`);
     }
+  }
+  if (state === "unread") {
+    query = query.eq("read_state", false);
+  } else if (state === "liked") {
+    query = query.eq("feedback_value", "up");
+  } else if (state === "hide-down") {
+    // Keep items with no vote or an up vote; drop only thumbs-down. (A plain
+    // `neq.down` would also drop NULLs, so match null-or-up explicitly.)
+    query = query.or("feedback_value.is.null,feedback_value.eq.up");
   }
   if (windowDays != null) {
     const since = new Date(now - windowDays * MS_PER_DAY).toISOString();

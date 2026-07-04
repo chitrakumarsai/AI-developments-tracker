@@ -12,6 +12,13 @@ type ActiveFiltersProps = {
 const PILL =
   "inline-flex min-h-[36px] items-center gap-1.5 rounded-full px-3 font-medium transition-colors";
 
+/** Human labels for the feedback/read-state pill. */
+const STATE_LABELS: Record<string, string> = {
+  unread: "Unread",
+  liked: "Liked",
+  "hide-down": "Hiding 👎",
+};
+
 /**
  * The pill row shown above the feed when a source and/or tag filter is active.
  * Each pill's tap target clears exactly that one filter (preserving the rest and
@@ -21,7 +28,8 @@ export function ActiveFilters({ context, sourceLabel }: ActiveFiltersProps) {
   const hasSource = Boolean(context.source);
   const hasTag = Boolean(context.tag);
   const hasQuery = Boolean(context.q);
-  if (!hasSource && !hasTag && !hasQuery) return null;
+  const hasState = Boolean(context.state);
+  if (!hasSource && !hasTag && !hasQuery && !hasState) return null;
 
   return (
     <div
@@ -59,6 +67,17 @@ export function ActiveFilters({ context, sourceLabel }: ActiveFiltersProps) {
           className={`${PILL} bg-rule/60 text-muted hover:text-ink`}
         >
           #{context.tag}
+          <span aria-hidden="true">×</span>
+        </Link>
+      ) : null}
+
+      {hasState && context.state ? (
+        <Link
+          href={feedHref({ ...context, state: null, show: null })}
+          aria-label={`Clear ${STATE_LABELS[context.state] ?? context.state} filter`}
+          className={`${PILL} bg-rule/60 text-muted hover:text-ink`}
+        >
+          {STATE_LABELS[context.state] ?? context.state}
           <span aria-hidden="true">×</span>
         </Link>
       ) : null}
