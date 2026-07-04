@@ -12,7 +12,7 @@
   --color-surface: oklch(100% 0 0);        /* cards / raised surfaces */
   --color-ink: oklch(22% 0.012 60);        /* primary text */
   --color-muted: oklch(52% 0.012 60);      /* secondary text */
-  --color-faint: oklch(68% 0.01 60);       /* tertiary / timestamps */
+  --color-faint: oklch(62% 0.01 60);       /* tertiary / timestamps — darkened for AA-ish contrast */
   --color-rule: oklch(90% 0.005 80);       /* hairline rules / borders */
   --color-accent: oklch(55% 0.205 25);     /* signal red — used sparingly */
   --color-accent-ink: oklch(98% 0.01 25);  /* text on accent */
@@ -84,4 +84,22 @@ body {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/*
+ * Keyboard focus: one consistent, visible accent ring across every interactive
+ * element (nav tabs, filter pills, source/tag chips, feedback buttons, links,
+ * inputs). Uses :focus-visible so mouse clicks stay quiet while keyboard and
+ * assistive-tech users always see where they are. Individual components no
+ * longer need their own focus styles.
+ */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Suppress the mouse-focus outline where the browser would still draw one. */
+:focus:not(:focus-visible) {
+  outline: none;
 }

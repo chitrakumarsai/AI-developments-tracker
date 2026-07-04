@@ -11,7 +11,7 @@ type FeedbackControlsProps = {
 };
 
 const BUTTON =
-  "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-[var(--radius-sm)] text-base transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent";
+  "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-[var(--radius-sm)] text-base transition-colors";
 
 /**
  * Thumbs up/down on an item. Optimistic: the vote flips immediately, then POSTs

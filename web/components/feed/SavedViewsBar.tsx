@@ -101,7 +101,7 @@ export function SavedViewsBar({ views, current, hasActiveFilters }: SavedViewsBa
             onChange={(e) => setName(e.target.value)}
             placeholder="Name this view…"
             maxLength={MAX_NAME}
-            className="min-h-[36px] rounded-[var(--radius-sm)] border border-rule bg-transparent px-2.5 text-ink placeholder:text-faint focus:border-accent focus:outline-none"
+            className="min-h-[36px] rounded-[var(--radius-sm)] border border-rule bg-transparent px-2.5 text-ink placeholder:text-faint focus:border-accent"
           />
           <button
             type="submit"

@@ -213,7 +213,7 @@ export default async function Home({
               placeholder="Search titles & summaries…"
               aria-label="Search the feed"
               maxLength={MAX_SEARCH_LENGTH}
-              className="min-h-[44px] w-full flex-1 rounded-[var(--radius-sm)] border border-rule bg-transparent px-3 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none"
+              className="min-h-[44px] w-full flex-1 rounded-[var(--radius-sm)] border border-rule bg-transparent px-3 text-sm text-ink placeholder:text-faint focus:border-accent"
             />
             <button
               type="submit"

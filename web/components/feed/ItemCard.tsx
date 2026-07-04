@@ -108,7 +108,7 @@ export function ItemCard({ item, context = {} }: ItemCardProps) {
               <Link
                 href={feedHref({ ...context, tag, show: null })}
                 aria-label={`Show only items tagged ${tag}`}
-                className="inline-flex min-h-[32px] items-center rounded-full bg-rule/50 px-2.5 text-xs font-medium text-muted transition-colors hover:bg-accent/10 hover:text-accent"
+                className="inline-flex min-h-[36px] items-center rounded-full bg-rule/50 px-2.5 text-xs font-medium text-muted transition-colors hover:bg-accent/10 hover:text-accent"
               >
                 #{tag}
               </Link>
