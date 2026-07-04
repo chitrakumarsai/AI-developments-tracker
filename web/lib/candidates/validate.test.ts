@@ -15,6 +15,33 @@ function fakeFetch(body: string, ok = true, status = 200): FetchLike {
   return async () => ({ ok, status, text: async () => body });
 }
 
+type Step = { status: number; location?: string; body?: string };
+
+/**
+ * A fake fetch that plays a sequence of responses (one per hop) and records the
+ * URLs it was asked for — lets us assert redirect-following and per-hop SSRF.
+ * The last step repeats if the loop keeps going.
+ */
+function seqFetch(steps: Step[]): { fetch: FetchLike; urls: string[] } {
+  const urls: string[] = [];
+  let i = 0;
+  const fetch: FetchLike = async (input) => {
+    urls.push(input);
+    const step = steps[Math.min(i, steps.length - 1)];
+    i += 1;
+    return {
+      ok: step.status < 400,
+      status: step.status,
+      text: async () => step.body ?? "",
+      headers: {
+        get: (name: string) =>
+          name.toLowerCase() === "location" ? (step.location ?? null) : null,
+      },
+    };
+  };
+  return { fetch, urls };
+}
+
 describe("validateFeedUrl", () => {
   it("rejects a private/loopback host before fetching (SSRF guard)", async () => {
     let fetched = false;
@@ -71,6 +98,42 @@ describe("validateFeedUrl", () => {
     );
     expect(result.ok).toBe(false);
     expect(result.reason).toMatch(/404/);
+  });
+
+  it("follows a safe redirect, then validates the final feed", async () => {
+    const { fetch, urls } = seqFetch([
+      { status: 302, location: "https://example.com/final.xml" },
+      { status: 200, body: RSS_OK },
+    ]);
+    const result = await validateFeedUrl("https://example.com/feed", "rss", fetch);
+    expect(result.ok).toBe(true);
+    expect(result.sampleCount).toBe(1);
+    expect(urls).toEqual(["https://example.com/feed", "https://example.com/final.xml"]);
+  });
+
+  it("blocks a redirect to a private/metadata host and never fetches it", async () => {
+    const { fetch, urls } = seqFetch([
+      { status: 302, location: "http://169.254.169.254/latest/meta-data" },
+    ]);
+    const result = await validateFeedUrl("https://example.com/feed", "rss", fetch);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toMatch(/private|loopback/);
+    // Only the original URL was fetched — the private hop was rejected pre-request.
+    expect(urls).toEqual(["https://example.com/feed"]);
+  });
+
+  it("rejects a redirect with no Location header", async () => {
+    const { fetch } = seqFetch([{ status: 301 }]);
+    const result = await validateFeedUrl("https://example.com/feed", "rss", fetch);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toMatch(/location/i);
+  });
+
+  it("rejects a redirect chain that is too long", async () => {
+    const { fetch } = seqFetch([{ status: 302, location: "https://loop.example.com/x" }]);
+    const result = await validateFeedUrl("https://start.example.com/feed", "rss", fetch);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toMatch(/too many redirects/);
   });
 
   it("only checks URL safety for manual sources (no fetch)", async () => {
