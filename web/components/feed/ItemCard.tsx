@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import type { ItemRow } from "@/lib/supabase/types";
 import { platformForItem } from "@/lib/feed/platform";
+import { metricMeta } from "@/lib/feed/metric";
 import { feedHref, type FeedHrefParams } from "@/lib/feed/filterHref";
 import { Abstract } from "./Abstract";
 import { FeedbackControls } from "./FeedbackControls";
@@ -43,11 +44,6 @@ function formatAbsolute(iso: string | null): string {
 
 const METRIC_NUMBER = new Intl.NumberFormat("en-US");
 
-/** GitHub repos count stars; Hugging Face models count likes — label the metric per category. */
-function metricLabel(category: string): string {
-  return category === "GitHub Repositories" ? "stars" : "likes";
-}
-
 type ItemCardProps = {
   item: ItemRow;
   /** Current filter state, so source/tag links preserve section/sort/window. */
@@ -62,6 +58,7 @@ type ItemCardProps = {
  */
 export function ItemCard({ item, context = {} }: ItemCardProps) {
   const platform = platformForItem(item);
+  const metric = item.metric != null ? metricMeta(platform.slug, item.category) : null;
   const tags = item.tags?.slice(0, MAX_TAG_CHIPS) ?? [];
   return (
     <article className="border-b border-rule py-5">
@@ -76,13 +73,13 @@ export function ItemCard({ item, context = {} }: ItemCardProps) {
           </Link>
           <span className="truncate text-faint">{item.category}</span>
         </p>
-        {item.metric != null ? (
+        {item.metric != null && metric ? (
           <span
             className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rule/50 px-2 py-0.5 text-xs font-medium text-muted"
-            aria-label={`${METRIC_NUMBER.format(item.metric)} ${metricLabel(item.category)}`}
+            aria-label={`${METRIC_NUMBER.format(item.metric)} ${metric.label}`}
           >
             <span aria-hidden="true" className="text-accent">
-              ★
+              {metric.icon}
             </span>
             {METRIC_NUMBER.format(item.metric)}
           </span>
