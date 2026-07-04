@@ -15,6 +15,8 @@ export type FeedHrefParams = {
   source?: string | null;
   /** Active tag; null/absent = no tag filter. Encoded safely (untrusted text). */
   tag?: string | null;
+  /** Free-text search query; null/absent = no search. Encoded safely (untrusted text). */
+  q?: string | null;
   /** Paging size; null/absent = default first page. */
   show?: number | null;
 };
@@ -32,6 +34,7 @@ export function feedHref(params: FeedHrefParams = {}): string {
   if (params.window && params.window !== DEFAULT_WINDOW) sp.set("window", params.window);
   if (params.source) sp.set("source", params.source);
   if (params.tag) sp.set("tag", params.tag);
+  if (params.q) sp.set("q", params.q);
   if (params.show != null) sp.set("show", String(params.show));
   const qs = sp.toString();
   return qs ? `/?${qs}` : "/";

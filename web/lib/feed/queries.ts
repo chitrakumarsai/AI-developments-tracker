@@ -43,6 +43,26 @@ const UNBOUNDED_DECAY_DAYS = 365;
  */
 const RANK_POOL_SIZE = 300;
 
+/** Upper bound on an incoming search term so a hostile query can't bloat the filter. */
+const MAX_SEARCH_LENGTH = 100;
+
+/**
+ * Turn an untrusted free-text query into a safe PostgREST `ilike` needle.
+ *
+ * The search runs through `.or("title.ilike.*x*,summary.ilike.*x*")`, whose
+ * grammar is delimited by commas and parentheses — and `%`/`_`/`\` are LIKE
+ * wildcards. We strip all of those (plus quotes) so the term is treated as a
+ * literal substring and can never break out of the filter. Returns "" when
+ * nothing searchable remains.
+ */
+export function sanitizeSearch(raw: string): string {
+  return raw
+    .replace(/[,()*%_\\"]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_SEARCH_LENGTH);
+}
+
 export type FeedQuery = {
   /** DB category to filter to; null/undefined = all categories. */
   category?: string | null;
@@ -50,6 +70,8 @@ export type FeedQuery = {
   source?: string | null;
   /** Restrict to items carrying this tag; null/undefined = no tag filter. */
   tag?: string | null;
+  /** Free-text search across title + summary; null/undefined = no search. */
+  q?: string | null;
   sort?: FeedSort;
   window?: FeedWindow;
   limit?: number;
@@ -70,6 +92,7 @@ export async function getFeedItems(
     category,
     source,
     tag,
+    q,
     sort = "relevant",
     window = DEFAULT_WINDOW,
     limit = INITIAL_FEED_LIMIT,
@@ -90,6 +113,14 @@ export async function getFeedItems(
   if (tag) {
     // Postgres array containment: rows whose `tags` include this value.
     query = query.contains("tags", [tag]);
+  }
+  if (q) {
+    const needle = sanitizeSearch(q);
+    if (needle) {
+      // Case-insensitive substring match on title OR summary. `needle` is
+      // sanitized above so it can't break the or()/LIKE grammar.
+      query = query.or(`title.ilike.*${needle}*,summary.ilike.*${needle}*`);
+    }
   }
   if (windowDays != null) {
     const since = new Date(now - windowDays * MS_PER_DAY).toISOString();

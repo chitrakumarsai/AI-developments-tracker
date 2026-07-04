@@ -20,7 +20,8 @@ const PILL =
 export function ActiveFilters({ context, sourceLabel }: ActiveFiltersProps) {
   const hasSource = Boolean(context.source);
   const hasTag = Boolean(context.tag);
-  if (!hasSource && !hasTag) return null;
+  const hasQuery = Boolean(context.q);
+  if (!hasSource && !hasTag && !hasQuery) return null;
 
   return (
     <div
@@ -28,6 +29,17 @@ export function ActiveFilters({ context, sourceLabel }: ActiveFiltersProps) {
       aria-label="Active filters"
     >
       <span className="text-faint">Filtered to</span>
+
+      {hasQuery ? (
+        <Link
+          href={feedHref({ ...context, q: null, show: null })}
+          aria-label={`Clear search: ${context.q}`}
+          className={`${PILL} bg-accent/10 text-accent hover:bg-accent/20`}
+        >
+          “{context.q}”
+          <span aria-hidden="true">×</span>
+        </Link>
+      ) : null}
 
       {hasSource ? (
         <Link

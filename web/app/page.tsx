@@ -18,6 +18,9 @@ const SORTABLE_SLUGS = new Set(["repos", "models"]);
 /** Cap the length of an incoming tag param so a hostile URL can't bloat state. */
 const MAX_TAG_LENGTH = 64;
 
+/** Cap the length of an incoming search param (mirrors the query-side sanitizer). */
+const MAX_SEARCH_LENGTH = 100;
+
 const WINDOW_OPTIONS: ReadonlyArray<{ key: FeedWindow; label: string }> = [
   { key: "today", label: "Today" },
   { key: "week", label: "Week" },
@@ -47,6 +50,7 @@ export default async function Home({
     window?: string;
     source?: string;
     tag?: string;
+    q?: string;
   }>;
 }) {
   const {
@@ -56,12 +60,14 @@ export default async function Home({
     window: windowParam,
     source: sourceParam,
     tag: tagParam,
+    q: qParam,
   } = await searchParams;
   const active = sectionForSlug(sectionParam);
 
   // Untrusted URL params: keep a non-empty source id; trim + length-cap the tag.
   const source = sourceParam?.trim() ? sourceParam.trim() : undefined;
   const tag = tagParam?.trim() ? tagParam.trim().slice(0, MAX_TAG_LENGTH) : undefined;
+  const q = qParam?.trim() ? qParam.trim().slice(0, MAX_SEARCH_LENGTH) : undefined;
   const requested = Number.parseInt(showParam ?? "", 10);
   const limit = Number.isNaN(requested)
     ? INITIAL_FEED_LIMIT
@@ -82,6 +88,19 @@ export default async function Home({
     { key: "relevant", label: "Relevant" },
     { key: "recent", label: "Newest" },
     ...(canSort ? [{ key: "metric" as const, label: "Top-starred" }] : []),
+  ];
+
+  // The search box is a native GET form so it needs no client JS. Carry the
+  // other active filters as hidden inputs (mirroring feedHref's URL tokens) so
+  // searching narrows the *current* view instead of resetting it.
+  const searchHiddenFields: ReadonlyArray<{ name: string; value: string }> = [
+    ...(active.slug !== "all" ? [{ name: "section", value: active.slug }] : []),
+    ...(sort !== "relevant"
+      ? [{ name: "sort", value: sort === "metric" ? "stars" : "recent" }]
+      : []),
+    ...(window !== DEFAULT_WINDOW ? [{ name: "window", value: window }] : []),
+    ...(source ? [{ name: "source", value: source }] : []),
+    ...(tag ? [{ name: "tag", value: tag }] : []),
   ];
 
   return (
@@ -108,6 +127,7 @@ export default async function Home({
                       window,
                       source,
                       tag,
+                      q,
                     })}
                     aria-current={isActive ? "page" : undefined}
                     className={`inline-block rounded-[var(--radius-sm)] px-3 py-1.5 text-sm transition-colors ${
@@ -127,6 +147,36 @@ export default async function Home({
 
       <main className="flex flex-1 flex-col">
         <section aria-label="Feed" className="flex flex-1 flex-col">
+          <form
+            method="get"
+            action="/"
+            role="search"
+            className="flex items-center gap-2 pt-4"
+          >
+            {searchHiddenFields.map((field) => (
+              <input
+                key={field.name}
+                type="hidden"
+                name={field.name}
+                value={field.value}
+              />
+            ))}
+            <input
+              type="search"
+              name="q"
+              defaultValue={q ?? ""}
+              placeholder="Search titles & summaries…"
+              aria-label="Search the feed"
+              maxLength={MAX_SEARCH_LENGTH}
+              className="min-h-[44px] w-full flex-1 rounded-[var(--radius-sm)] border border-rule bg-transparent px-3 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none"
+            />
+            <button
+              type="submit"
+              className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] bg-ink px-4 text-sm font-medium text-surface transition-colors hover:bg-accent"
+            >
+              Search
+            </button>
+          </form>
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-4 text-xs">
             <div className="flex items-center gap-1" aria-label="Time window">
               <span className="mr-1 text-faint">Window</span>
@@ -141,6 +191,7 @@ export default async function Home({
                       window: option.key,
                       source,
                       tag,
+                      q,
                     })}
                     aria-current={isActive ? "true" : undefined}
                     className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] px-2.5 font-medium transition-colors ${
@@ -167,6 +218,7 @@ export default async function Home({
                       window,
                       source,
                       tag,
+                      q,
                     })}
                     aria-current={isActive ? "true" : undefined}
                     className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] px-2.5 font-medium transition-colors ${
@@ -182,13 +234,14 @@ export default async function Home({
             </div>
           </div>
           <Suspense
-            key={`${active.slug}:${limit}:${sort}:${window}:${source ?? ""}:${tag ?? ""}`}
+            key={`${active.slug}:${limit}:${sort}:${window}:${source ?? ""}:${tag ?? ""}:${q ?? ""}`}
             fallback={<FeedFallback />}
           >
             <FeedList
               category={active.category}
               source={source}
               tag={tag}
+              q={q}
               sectionLabel={active.label}
               sectionSlug={active.slug}
               limit={limit}

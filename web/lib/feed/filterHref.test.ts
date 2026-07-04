@@ -30,6 +30,17 @@ describe("feedHref", () => {
     expect(feedHref({ tag: "a&b=c" })).toBe("/?tag=a%26b%3Dc");
   });
 
+  it("sets and percent-encodes a search query", () => {
+    expect(feedHref({ q: "diffusion" })).toBe("/?q=diffusion");
+    expect(feedHref({ q: "vision transformer" })).toBe("/?q=vision+transformer");
+    expect(feedHref({ q: "a&b" })).toBe("/?q=a%26b");
+  });
+
+  it("omits an empty search query", () => {
+    expect(feedHref({ q: "" })).toBe("/");
+    expect(feedHref({ q: null })).toBe("/");
+  });
+
   it("combines multiple filters in a stable order", () => {
     const href = feedHref({
       section: "social",
@@ -37,10 +48,11 @@ describe("feedHref", () => {
       window: "week",
       source: "src-9",
       tag: "agents",
+      q: "rlhf",
       show: 60,
     });
     expect(href).toBe(
-      "/?section=social&sort=recent&window=week&source=src-9&tag=agents&show=60",
+      "/?section=social&sort=recent&window=week&source=src-9&tag=agents&q=rlhf&show=60",
     );
   });
 

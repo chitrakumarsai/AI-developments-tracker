@@ -33,6 +33,8 @@ type FeedListProps = {
   source?: string | null;
   /** Restrict to items carrying this tag; null/undefined = no tag filter. */
   tag?: string | null;
+  /** Free-text search across title + summary; null/undefined = no search. */
+  q?: string | null;
   /** Section label, used only for the empty-state copy. */
   sectionLabel?: string;
   /** Active section slug, used to build the Show more link. */
@@ -54,6 +56,7 @@ export async function FeedList({
   category,
   source,
   tag,
+  q,
   sectionLabel,
   sectionSlug = "all",
   limit = INITIAL_FEED_LIMIT,
@@ -62,11 +65,11 @@ export async function FeedList({
 }: FeedListProps = {}) {
   // Shared filter context: every in-feed link is built from this so the URL
   // stays the single source of truth and filters combine cleanly.
-  const context: FeedHrefParams = { section: sectionSlug, sort, window, source, tag };
+  const context: FeedHrefParams = { section: sectionSlug, sort, window, source, tag, q };
 
   let items: ItemRow[] = [];
   try {
-    items = await getFeedItems({ category, source, tag, sort, window, limit });
+    items = await getFeedItems({ category, source, tag, q, sort, window, limit });
   } catch {
     return (
       <Notice
@@ -82,7 +85,7 @@ export async function FeedList({
     : null;
 
   if (items.length === 0) {
-    const isFiltered = Boolean(source || tag);
+    const isFiltered = Boolean(source || tag || q);
     const scope = category ? `${sectionLabel ?? "this section"}` : "the feed";
     return (
       <>
