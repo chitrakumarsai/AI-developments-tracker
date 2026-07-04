@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 
 import { FeedList } from "@/components/feed/FeedList";
+import { DigestCard } from "@/components/feed/DigestCard";
 import { FEED_SECTIONS, sectionForSlug } from "@/lib/feed/categories";
 import {
   INITIAL_FEED_LIMIT,
@@ -197,6 +198,11 @@ export default async function Home({
       </header>
 
       <main className="flex flex-1 flex-col">
+        {window === "week" || window === "month" ? (
+          <Suspense fallback={null}>
+            <DigestCard period={window} />
+          </Suspense>
+        ) : null}
         <section aria-label="Feed" className="flex flex-1 flex-col">
           <form
             method="get"
