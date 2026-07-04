@@ -159,6 +159,9 @@ export default async function Home({
             <Link href="/sources" className="text-muted transition-colors hover:text-ink">
               Sources
             </Link>
+            <Link href="/settings" className="text-muted transition-colors hover:text-ink">
+              Settings
+            </Link>
           </div>
         </div>
         <nav aria-label="Categories" className="mt-4 -mx-1 overflow-x-auto">

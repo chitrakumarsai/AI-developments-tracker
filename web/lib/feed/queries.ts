@@ -74,10 +74,33 @@ export type FeedQuery = {
   q?: string | null;
   /** Feedback/read-state filter; null/undefined = no state filter. */
   state?: FeedState | null;
+  /** Max items per source per day (settings); null/undefined = unlimited. */
+  perSourceDailyCap?: number | null;
   sort?: FeedSort;
   window?: FeedWindow;
   limit?: number;
 };
+
+/**
+ * Cap how many items each source may contribute per calendar day, preserving
+ * input order (so the already-ranked/sorted list stays intact). This is the
+ * "don't overwhelm me" de-crowder — a single prolific source (arXiv, a busy
+ * subreddit) can't dominate the feed. `cap` null/≤0 = no capping.
+ */
+export function capPerSourceDay(items: ItemRow[], cap: number | null): ItemRow[] {
+  if (cap == null || cap <= 0) return items;
+  const counts = new Map<string, number>();
+  const out: ItemRow[] = [];
+  for (const item of items) {
+    const day = item.published_at ? item.published_at.slice(0, 10) : "undated";
+    const key = `${item.source_id}:${day}`;
+    const seen = counts.get(key) ?? 0;
+    if (seen >= cap) continue;
+    counts.set(key, seen + 1);
+    out.push(item);
+  }
+  return out;
+}
 
 /**
  * Load feed items. Default order is relevance (recency + popularity), which
@@ -96,6 +119,7 @@ export async function getFeedItems(
     tag,
     q,
     state,
+    perSourceDailyCap = null,
     sort = "relevant",
     window = DEFAULT_WINDOW,
     limit = INITIAL_FEED_LIMIT,
@@ -104,6 +128,7 @@ export async function getFeedItems(
 ): Promise<ItemRow[]> {
   const now = Date.now();
   const windowDays = WINDOW_DAYS[window] ?? null;
+  const cap = perSourceDailyCap;
 
   // Embed the source name so the card can label the item's platform accurately.
   let query = client.from("items").select("*, source:sources(name)");
@@ -148,18 +173,22 @@ export async function getFeedItems(
     }
     const pool = (data ?? []) as unknown as ItemRow[];
     const decayDays = windowDays ?? UNBOUNDED_DECAY_DAYS;
-    return rankItems(pool, now, decayDays).slice(0, limit);
+    return capPerSourceDay(rankItems(pool, now, decayDays), cap).slice(0, limit);
   }
 
   query =
     sort === "metric"
       ? query.order("metric", { ascending: false, nullsFirst: false })
       : query.order("published_at", { ascending: false, nullsFirst: false });
-  const { data, error } = await query.limit(limit);
+  // With a cap active we must over-fetch, then trim — otherwise capping a
+  // limit-sized page would return fewer than `limit` rows.
+  const fetchLimit = cap != null && cap > 0 ? RANK_POOL_SIZE : limit;
+  const { data, error } = await query.limit(fetchLimit);
   if (error) {
     throw new Error(`Failed to load items: ${error.message}`);
   }
   // Unchecked cast: the untyped client returns any[]. Replace with generated
   // types once `supabase gen types typescript --local` is in the toolchain.
-  return (data ?? []) as unknown as ItemRow[];
+  const rows = (data ?? []) as unknown as ItemRow[];
+  return capPerSourceDay(rows, cap).slice(0, limit);
 }

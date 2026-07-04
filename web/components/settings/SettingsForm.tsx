@@ -1,0 +1,99 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+import type { AppSettings } from "@/lib/settings/types";
+import { MAX_TOP_PER_SOURCE_DAY } from "@/lib/settings/types";
+
+/**
+ * Edit the feed settings. Slice B exposes the per-source daily cap — the single
+ * biggest "don't overwhelm me" lever. The form keeps the full settings object in
+ * state and saves it whole, so later controls (keywords, metric floor) slot in
+ * without changing the save path.
+ */
+export function SettingsForm({ initial }: { initial: AppSettings }) {
+  const router = useRouter();
+  const [settings, setSettings] = useState<AppSettings>(initial);
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(false);
+
+  // Empty input = "unlimited" (null cap).
+  const capValue = settings.topPerSourceDay ?? "";
+
+  function setCap(raw: string) {
+    const n = Number.parseInt(raw, 10);
+    setSettings((s) => ({
+      ...s,
+      topPerSourceDay: Number.isNaN(n) ? null : Math.min(Math.max(n, 1), MAX_TOP_PER_SOURCE_DAY),
+    }));
+    setSaved(false);
+  }
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(false);
+    setSaved(false);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      });
+      if (!res.ok) throw new Error(`Failed: ${res.status}`);
+      setSaved(true);
+      router.refresh();
+    } catch {
+      setError(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={save} className="flex flex-col gap-5">
+      <div className="flex flex-col gap-2 border border-rule rounded-[var(--radius-md)] p-4">
+        <label htmlFor="cap" className="text-sm font-medium text-ink">
+          Top items per source, per day
+        </label>
+        <p className="text-xs text-muted">
+          Caps how many items any single source (arXiv, a subreddit, a blog) can add to
+          the feed each day, so no one source floods it. Leave blank for unlimited.
+        </p>
+        <input
+          id="cap"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={MAX_TOP_PER_SOURCE_DAY}
+          value={capValue}
+          onChange={(e) => setCap(e.target.value)}
+          placeholder="Unlimited"
+          className="min-h-[44px] w-28 rounded-[var(--radius-sm)] border border-rule bg-transparent px-3 text-sm text-ink placeholder:text-faint focus:border-accent"
+        />
+      </div>
+
+      <div className="flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={busy}
+          className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] bg-ink px-5 text-sm font-medium text-surface transition-colors hover:bg-accent disabled:opacity-50"
+        >
+          Save settings
+        </button>
+        {saved ? (
+          <span role="status" className="text-xs text-muted">
+            Saved · feed updated
+          </span>
+        ) : null}
+        {error ? (
+          <span role="alert" className="text-xs text-red-600">
+            Couldn’t save — try again
+          </span>
+        ) : null}
+      </div>
+    </form>
+  );
+}

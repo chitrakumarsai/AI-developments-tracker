@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { getFeedItems, sanitizeSearch } from "./queries";
+import { capPerSourceDay, getFeedItems, sanitizeSearch } from "./queries";
 import type { ItemRow } from "../supabase/types";
 
 /** Build an ItemRow with sensible defaults; override only what a test cares about. */
@@ -243,5 +243,35 @@ describe("sanitizeSearch", () => {
 
   it("returns empty string when nothing searchable remains", () => {
     expect(sanitizeSearch("()%_,")).toBe("");
+  });
+});
+
+describe("capPerSourceDay", () => {
+  const s = (id: string, source: string, day: string): ItemRow =>
+    item({ id, source_id: source, published_at: `${day}T12:00:00Z` });
+
+  it("keeps at most N items per source per day, preserving order", () => {
+    const items = [
+      s("a1", "arxiv", "2026-07-04"),
+      s("a2", "arxiv", "2026-07-04"),
+      s("a3", "arxiv", "2026-07-04"),
+      s("r1", "reddit", "2026-07-04"),
+    ];
+    const capped = capPerSourceDay(items, 2);
+    expect(capped.map((i) => i.id)).toEqual(["a1", "a2", "r1"]);
+  });
+
+  it("counts days separately for the same source", () => {
+    const items = [
+      s("d1", "arxiv", "2026-07-04"),
+      s("d2", "arxiv", "2026-07-03"),
+    ];
+    expect(capPerSourceDay(items, 1).map((i) => i.id)).toEqual(["d1", "d2"]);
+  });
+
+  it("no-ops when cap is null or non-positive", () => {
+    const items = [s("a1", "arxiv", "2026-07-04"), s("a2", "arxiv", "2026-07-04")];
+    expect(capPerSourceDay(items, null)).toHaveLength(2);
+    expect(capPerSourceDay(items, 0)).toHaveLength(2);
   });
 });
