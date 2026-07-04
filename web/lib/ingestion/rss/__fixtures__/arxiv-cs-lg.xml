@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>cs.LG updates on arXiv.org</title>
+    <link>http://arxiv.org/</link>
+    <description>Machine Learning (cs.LG) updates on the arXiv.org e-print archive</description>
+    <item>
+      <title>Scaling Laws for Neural Language Models. (arXiv:2001.08361)</title>
+      <link>http://arxiv.org/abs/2001.08361</link>
+      <description>&lt;p&gt;We study empirical scaling laws for language model performance on the cross-entropy loss &amp;amp; show they hold over &amp;gt;7 orders of magnitude.&lt;/p&gt;</description>
+      <dc:creator>Jared Kaplan, Sam McCandlish</dc:creator>
+      <pubDate>Wed, 22 Jan 2020 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>Attention Is All You Need. (arXiv:1706.03762)</title>
+      <link>http://arxiv.org/abs/1706.03762</link>
+      <description>&lt;p&gt;The dominant sequence transduction models are based on complex recurrent or convolutional neural networks. We propose the Transformer.&lt;/p&gt;</description>
+      <dc:creator>Ashish Vaswani, Noam Shazeer</dc:creator>
+      <pubDate>Mon, 12 Jun 2017 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>A Paper With No Link.</title>
+      <link></link>
+      <description>This item is missing a link and must be skipped with a warning.</description>
+      <dc:creator>Nobody</dc:creator>
+      <pubDate>Tue, 01 Jan 2019 00:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>

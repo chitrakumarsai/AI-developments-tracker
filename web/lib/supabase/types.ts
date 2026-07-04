@@ -1,0 +1,51 @@
+/**
+ * Database row types (AI Chronicles, Phase 1).
+ *
+ * Hand-written to mirror `supabase/migrations/20260622000001_init.sql`. Swap for
+ * `supabase gen types typescript --local` output once the CLI is wired into the
+ * toolchain; the shapes below are the contract until then.
+ */
+
+export type IngestionType = "rss" | "api" | "scrape" | "manual";
+export type SourceStatus = "active" | "paused" | "archived";
+/** Thumbs vote on an item (matches the `feedback_value` Postgres enum). */
+export type FeedbackValue = "up" | "down";
+
+export type ItemRow = {
+  id: string;
+  source_id: string;
+  title: string;
+  author: string | null;
+  summary: string | null;
+  url: string;
+  category: string;
+  tags: string[];
+  relevance_score: number;
+  read_state: boolean;
+  published_at: string | null;
+  fetched_at: string;
+  /** Popularity metric (GitHub stars, HF likes); null when the source has none. */
+  metric: number | null;
+  /** GitHub forks — a second, additive popularity signal; null for other sources. */
+  forks: number | null;
+  /** Current thumbs vote (denormalized from the feedback log); null = no vote. */
+  feedback_value: FeedbackValue | null;
+  /** Embedded source identity (from a join); used to label the item's platform. */
+  source?: { name: string | null } | null;
+};
+
+export type SourceRow = {
+  id: string;
+  name: string;
+  category: string;
+  url: string;
+  ingestion_type: IngestionType;
+  status: SourceStatus;
+  priority: number;
+  tags: string[];
+  notes: string | null;
+  added_on: string;
+  last_fetched: string | null;
+  /** Postgres `interval` text (e.g. "1 day"). Drives scheduled-refresh due checks. */
+  refresh_interval: string;
+};

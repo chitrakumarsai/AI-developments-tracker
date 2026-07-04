@@ -14,8 +14,10 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Anchored to repo root so they only match Python build output — NOT the
+# Next.js app source at web/lib/ (which must be committed).
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -40,6 +42,9 @@ pip-delete-this-directory.txt
 htmlcov/
 .tox/
 .nox/
+coverage/
+test-results/
+playwright-report/
 .coverage
 .coverage.*
 .cache
@@ -216,3 +221,50 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ---------------------------------------------------------------------------
+# Node / Next.js / project (Sonar)
+# ---------------------------------------------------------------------------
+
+# dependencies
+node_modules/
+.pnpm-store/
+.pnp
+.pnp.*
+
+# next.js
+web/.next/
+web/out/
+web/build/
+web/next-env.d.ts
+
+# production
+web/dist/
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+
+# env files (all variants)
+.env*
+!.env.example
+
+# supabase local
+supabase/.branches
+supabase/.temp
+
+# logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+
+# Vendored ECC framework — kept locally for reference (see CLAUDE.md §12.8), not committed
+ECC/

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Example Lab — Blog</title>
+    <link>https://lab.example.com/blog</link>
+    <description>Research and product updates</description>
+    <item>
+      <title>Introducing Our New Model</title>
+      <link>https://lab.example.com/blog/new-model</link>
+      <dc:creator>Research Team</dc:creator>
+      <pubDate>Mon, 30 Jun 2025 09:00:00 GMT</pubDate>
+      <description>A short teaser about the new model &amp; its capabilities.</description>
+      <content:encoded><![CDATA[<h2>Big news</h2><p>Today we <strong>launch</strong> a model that improves on prior work. <a href="https://x">details</a></p>]]></content:encoded>
+    </item>
+    <item>
+      <title>Safety Update</title>
+      <link>https://lab.example.com/blog/safety</link>
+      <dc:creator>Policy Team</dc:creator>
+      <pubDate>Fri, 27 Jun 2025 12:00:00 GMT</pubDate>
+      <description>Notes on our latest safety evaluation.</description>
+    </item>
+  </channel>
+</rss>

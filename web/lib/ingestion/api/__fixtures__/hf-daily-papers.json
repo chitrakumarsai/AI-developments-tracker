@@ -1,0 +1,36 @@
+[
+  {
+    "publishedAt": "2026-06-28T04:00:00.000Z",
+    "title": "Scaling Laws for Efficient Inference",
+    "paper": {
+      "id": "2506.12345",
+      "title": "Scaling Laws for <b>Efficient</b> Inference &amp; Serving",
+      "summary": "We study the trade-offs between model size and latency.",
+      "authors": [{ "name": "Jane Doe" }, { "name": "John Roe" }],
+      "publishedAt": "2026-06-27T00:00:00.000Z",
+      "upvotes": 142
+    }
+  },
+  {
+    "publishedAt": "2026-06-28T04:00:00.000Z",
+    "title": "Agentic Retrieval",
+    "paper": {
+      "id": "2506.54321",
+      "title": "Agentic Retrieval for Long-Context Reasoning",
+      "summary": "A framework for tool-augmented retrieval.",
+      "authors": [{ "name": "Ada Turing" }],
+      "publishedAt": "2026-06-26T00:00:00.000Z",
+      "upvotes": 88
+    }
+  },
+  {
+    "publishedAt": "2026-06-28T04:00:00.000Z",
+    "title": "Missing id — must be skipped",
+    "paper": {
+      "title": "This paper has no id and must be skipped with a warning",
+      "summary": "no id",
+      "authors": [],
+      "upvotes": 3
+    }
+  }
+]
