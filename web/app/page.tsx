@@ -13,6 +13,9 @@ import {
 } from "@/lib/feed/queries";
 import { FEED_STATES } from "@/lib/feed/types";
 import { feedHref } from "@/lib/feed/filterHref";
+import { listViews, type SavedView } from "@/lib/views/persist";
+import type { SavedFilters } from "@/lib/views/href";
+import { SavedViewsBar } from "@/components/feed/SavedViewsBar";
 
 /** Sections whose items carry a popularity metric, so a Top-starred sort makes sense. */
 const SORTABLE_SLUGS = new Set(["repos", "models"]);
@@ -120,6 +123,30 @@ export default async function Home({
     ...(state ? [{ name: "state", value: state }] : []),
   ];
 
+  // Saved views: the current (non-default) filter set is offered for saving, and
+  // the stored presets are loaded for the bar. A DB hiccup must not break the
+  // feed, so fall back to an empty list.
+  const currentFilters: SavedFilters = {
+    section: active.slug !== "all" ? active.slug : undefined,
+    sort: sort !== "relevant" ? sort : undefined,
+    window: window !== DEFAULT_WINDOW ? window : undefined,
+    source,
+    tag,
+    q,
+    state,
+  };
+  const hasActiveFilters =
+    Boolean(source || tag || q || state) ||
+    active.slug !== "all" ||
+    sort !== "relevant" ||
+    window !== DEFAULT_WINDOW;
+  let savedViews: SavedView[] = [];
+  try {
+    savedViews = await listViews();
+  } catch {
+    savedViews = [];
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-[var(--space-gutter)]">
       <header className="border-b border-rule py-6">
@@ -195,6 +222,11 @@ export default async function Home({
               Search
             </button>
           </form>
+          <SavedViewsBar
+            views={savedViews}
+            current={currentFilters}
+            hasActiveFilters={hasActiveFilters}
+          />
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-4 text-xs">
             <div className="flex items-center gap-1" aria-label="Time window">
               <span className="mr-1 text-faint">Window</span>
