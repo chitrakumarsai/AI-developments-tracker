@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { capPerSourceDay, getFeedItems, sanitizeSearch } from "./queries";
+import {
+  applyContentFilters,
+  capPerSourceDay,
+  getFeedItems,
+  sanitizeSearch,
+} from "./queries";
 import type { ItemRow } from "../supabase/types";
 
 /** Build an ItemRow with sensible defaults; override only what a test cares about. */
@@ -273,5 +278,32 @@ describe("capPerSourceDay", () => {
     const items = [s("a1", "arxiv", "2026-07-04"), s("a2", "arxiv", "2026-07-04")];
     expect(capPerSourceDay(items, null)).toHaveLength(2);
     expect(capPerSourceDay(items, 0)).toHaveLength(2);
+  });
+});
+
+describe("applyContentFilters", () => {
+  const base = [
+    item({ id: "paper", title: "Diffusion survey", metric: null }),
+    item({ id: "repo", title: "Agent framework", metric: 20, tags: ["agents"] }),
+    item({ id: "crypto", title: "Crypto trading bot", metric: 500 }),
+  ];
+
+  it("keeps null-metric items but drops metric items below the floor", () => {
+    const out = applyContentFilters(base, { minMetric: 100 });
+    expect(out.map((i) => i.id).sort()).toEqual(["crypto", "paper"]);
+  });
+
+  it("drops items matching an exclude keyword", () => {
+    const out = applyContentFilters(base, { excludeKeywords: ["crypto"] });
+    expect(out.map((i) => i.id).sort()).toEqual(["paper", "repo"]);
+  });
+
+  it("keeps only items matching an include keyword (title/summary/tags)", () => {
+    const out = applyContentFilters(base, { includeKeywords: ["agents"] });
+    expect(out.map((i) => i.id)).toEqual(["repo"]);
+  });
+
+  it("no-ops when no filters are set", () => {
+    expect(applyContentFilters(base, {})).toHaveLength(3);
   });
 });

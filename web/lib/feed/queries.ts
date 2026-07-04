@@ -76,10 +76,51 @@ export type FeedQuery = {
   state?: FeedState | null;
   /** Max items per source per day (settings); null/undefined = unlimited. */
   perSourceDailyCap?: number | null;
+  /** Keep only items matching ANY of these words (settings); empty = no include filter. */
+  includeKeywords?: string[];
+  /** Drop items matching ANY of these words (settings). */
+  excludeKeywords?: string[];
+  /** Hide items whose metric is below this (settings); null/undefined = no floor. */
+  minMetric?: number | null;
   sort?: FeedSort;
   window?: FeedWindow;
   limit?: number;
 };
+
+/** Lowercased haystack (title + summary + tags) for keyword matching. */
+function haystack(item: ItemRow): string {
+  return `${item.title} ${item.summary ?? ""} ${(item.tags ?? []).join(" ")}`.toLowerCase();
+}
+
+type ContentFilters = {
+  includeKeywords?: string[];
+  excludeKeywords?: string[];
+  minMetric?: number | null;
+};
+
+/**
+ * Apply the settings content filters (app-feedback-v3):
+ *  - `minMetric`: drop items whose metric is *below* the floor. Items with NO
+ *    metric (papers, blogs) are kept — a star floor shouldn't hide all papers.
+ *  - `excludeKeywords`: drop items matching ANY excluded word.
+ *  - `includeKeywords`: when non-empty, keep only items matching ANY of them.
+ * Keywords are already lowercased/sanitized by `normalizeSettings`.
+ */
+export function applyContentFilters(
+  items: ItemRow[],
+  { includeKeywords = [], excludeKeywords = [], minMetric = null }: ContentFilters,
+): ItemRow[] {
+  if (!includeKeywords.length && !excludeKeywords.length && minMetric == null) {
+    return items;
+  }
+  return items.filter((item) => {
+    if (minMetric != null && item.metric != null && item.metric < minMetric) return false;
+    const hay = excludeKeywords.length || includeKeywords.length ? haystack(item) : "";
+    if (excludeKeywords.length && excludeKeywords.some((kw) => hay.includes(kw))) return false;
+    if (includeKeywords.length && !includeKeywords.some((kw) => hay.includes(kw))) return false;
+    return true;
+  });
+}
 
 /**
  * Cap how many items each source may contribute per calendar day, preserving
@@ -120,6 +161,9 @@ export async function getFeedItems(
     q,
     state,
     perSourceDailyCap = null,
+    includeKeywords = [],
+    excludeKeywords = [],
+    minMetric = null,
     sort = "relevant",
     window = DEFAULT_WINDOW,
     limit = INITIAL_FEED_LIMIT,
@@ -129,6 +173,14 @@ export async function getFeedItems(
   const now = Date.now();
   const windowDays = WINDOW_DAYS[window] ?? null;
   const cap = perSourceDailyCap;
+  const contentFilters = { includeKeywords, excludeKeywords, minMetric };
+  // Any post-fetch reducer (cap or content filters) means we must over-fetch a
+  // pool and trim, so a limit-sized page isn't left short after filtering.
+  const hasReducers =
+    (cap != null && cap > 0) ||
+    minMetric != null ||
+    includeKeywords.length > 0 ||
+    excludeKeywords.length > 0;
 
   // Embed the source name so the card can label the item's platform accurately.
   let query = client.from("items").select("*, source:sources(name)");
@@ -173,16 +225,17 @@ export async function getFeedItems(
     }
     const pool = (data ?? []) as unknown as ItemRow[];
     const decayDays = windowDays ?? UNBOUNDED_DECAY_DAYS;
-    return capPerSourceDay(rankItems(pool, now, decayDays), cap).slice(0, limit);
+    const ranked = applyContentFilters(rankItems(pool, now, decayDays), contentFilters);
+    return capPerSourceDay(ranked, cap).slice(0, limit);
   }
 
   query =
     sort === "metric"
       ? query.order("metric", { ascending: false, nullsFirst: false })
       : query.order("published_at", { ascending: false, nullsFirst: false });
-  // With a cap active we must over-fetch, then trim — otherwise capping a
-  // limit-sized page would return fewer than `limit` rows.
-  const fetchLimit = cap != null && cap > 0 ? RANK_POOL_SIZE : limit;
+  // With any post-fetch reducer active we over-fetch, then trim — otherwise a
+  // limit-sized page would be left short after filtering/capping.
+  const fetchLimit = hasReducers ? RANK_POOL_SIZE : limit;
   const { data, error } = await query.limit(fetchLimit);
   if (error) {
     throw new Error(`Failed to load items: ${error.message}`);
@@ -190,5 +243,5 @@ export async function getFeedItems(
   // Unchecked cast: the untyped client returns any[]. Replace with generated
   // types once `supabase gen types typescript --local` is in the toolchain.
   const rows = (data ?? []) as unknown as ItemRow[];
-  return capPerSourceDay(rows, cap).slice(0, limit);
+  return capPerSourceDay(applyContentFilters(rows, contentFilters), cap).slice(0, limit);
 }
