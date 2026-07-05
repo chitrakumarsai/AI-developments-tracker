@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { getFeedItems, sanitizeSearch } from "./queries";
+import {
+  applyContentFilters,
+  capPerSourceDay,
+  resolvePlatformSourceIds,
+  getFeedItems,
+  sanitizeSearch,
+} from "./queries";
 import type { ItemRow } from "../supabase/types";
 
 /** Build an ItemRow with sensible defaults; override only what a test cares about. */
@@ -243,5 +249,102 @@ describe("sanitizeSearch", () => {
 
   it("returns empty string when nothing searchable remains", () => {
     expect(sanitizeSearch("()%_,")).toBe("");
+  });
+});
+
+describe("capPerSourceDay", () => {
+  const s = (id: string, source: string, day: string): ItemRow =>
+    item({ id, source_id: source, published_at: `${day}T12:00:00Z` });
+
+  it("keeps at most N items per source per day, preserving order", () => {
+    const items = [
+      s("a1", "arxiv", "2026-07-04"),
+      s("a2", "arxiv", "2026-07-04"),
+      s("a3", "arxiv", "2026-07-04"),
+      s("r1", "reddit", "2026-07-04"),
+    ];
+    const capped = capPerSourceDay(items, 2);
+    expect(capped.map((i) => i.id)).toEqual(["a1", "a2", "r1"]);
+  });
+
+  it("counts days separately for the same source", () => {
+    const items = [
+      s("d1", "arxiv", "2026-07-04"),
+      s("d2", "arxiv", "2026-07-03"),
+    ];
+    expect(capPerSourceDay(items, 1).map((i) => i.id)).toEqual(["d1", "d2"]);
+  });
+
+  it("no-ops when cap is null or non-positive", () => {
+    const items = [s("a1", "arxiv", "2026-07-04"), s("a2", "arxiv", "2026-07-04")];
+    expect(capPerSourceDay(items, null)).toHaveLength(2);
+    expect(capPerSourceDay(items, 0)).toHaveLength(2);
+  });
+});
+
+describe("applyContentFilters", () => {
+  const base = [
+    item({ id: "paper", title: "Diffusion survey", metric: null }),
+    item({ id: "repo", title: "Agent framework", metric: 20, tags: ["agents"] }),
+    item({ id: "crypto", title: "Crypto trading bot", metric: 500 }),
+  ];
+
+  it("keeps null-metric items but drops metric items below the floor", () => {
+    const out = applyContentFilters(base, { minMetric: 100 });
+    expect(out.map((i) => i.id).sort()).toEqual(["crypto", "paper"]);
+  });
+
+  it("drops items matching an exclude keyword", () => {
+    const out = applyContentFilters(base, { excludeKeywords: ["crypto"] });
+    expect(out.map((i) => i.id).sort()).toEqual(["paper", "repo"]);
+  });
+
+  it("keeps only items matching an include keyword (title/summary/tags)", () => {
+    const out = applyContentFilters(base, { includeKeywords: ["agents"] });
+    expect(out.map((i) => i.id)).toEqual(["repo"]);
+  });
+
+  it("no-ops when no filters are set", () => {
+    expect(applyContentFilters(base, {})).toHaveLength(3);
+  });
+});
+
+describe("resolvePlatformSourceIds", () => {
+  /** Fake client whose `sources` select resolves to a fixed name list. */
+  function sourcesClient(rows: Array<{ id: string; name: string | null }>) {
+    return {
+      from() {
+        return { select: () => Promise.resolve({ data: rows, error: null }) };
+      },
+    } as unknown as SupabaseClient;
+  }
+
+  const sources = [
+    { id: "s-gh", name: "GitHub — Notable AI repos" },
+    { id: "s-hf1", name: "Hugging Face — Daily Papers" },
+    { id: "s-hf2", name: "Hugging Face — Trending models" },
+    { id: "s-hn", name: "Hacker News — AI stories" },
+    { id: "s-blog", name: "NVIDIA — Developer Blog" },
+  ];
+
+  it("maps a platform slug to every source on that platform (by source name)", async () => {
+    const client = sourcesClient(sources);
+    expect(await resolvePlatformSourceIds("hugging-face", client)).toEqual(["s-hf1", "s-hf2"]);
+    expect(await resolvePlatformSourceIds("github", client)).toEqual(["s-gh"]);
+    expect(await resolvePlatformSourceIds("hacker-news", client)).toEqual(["s-hn"]);
+  });
+
+  it("returns [] when no source is on that platform", async () => {
+    const client = sourcesClient(sources);
+    expect(await resolvePlatformSourceIds("reddit", client)).toEqual([]);
+  });
+
+  it("throws on DB error", async () => {
+    const client = {
+      from: () => ({
+        select: () => Promise.resolve({ data: null, error: { message: "boom" } }),
+      }),
+    } as unknown as SupabaseClient;
+    await expect(resolvePlatformSourceIds("github", client)).rejects.toThrow(/boom/);
   });
 });
