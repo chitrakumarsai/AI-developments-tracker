@@ -2,16 +2,25 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { markRead } from "@/lib/feedback/record";
+import { getSessionUser } from "@/lib/auth/session";
+import { createServerSupabaseClient } from "@/lib/supabase/ssr";
 
 /** Untrusted request body: the uuid of the item the user opened. */
 const bodySchema = z.object({ itemId: z.string().uuid() });
 
 /**
- * POST /api/items/read — mark an item as read (user opened it at the source).
- * Called via `navigator.sendBeacon`, so it must accept a plain JSON body and
- * return quickly. Idempotent.
+ * POST /api/items/read — mark an item as read for the signed-in user (2.2,
+ * per-user). Called via `navigator.sendBeacon`, so it accepts a plain JSON body
+ * and returns quickly. Read-state is private, so anonymous callers are a silent
+ * no-op success (nothing to record) rather than an error — sendBeacon can't act
+ * on a 401 anyway. Idempotent.
  */
 export async function POST(request: Request) {
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json({ success: true, data: null });
+  }
+
   let raw: unknown;
   try {
     raw = await request.json();
@@ -31,7 +40,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    await markRead(parsed.data.itemId);
+    const client = await createServerSupabaseClient();
+    await markRead(parsed.data.itemId, user.id, client);
     return NextResponse.json({ success: true, data: null });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

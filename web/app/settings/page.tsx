@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import { getSettings } from "@/lib/settings/persist";
 import { DEFAULT_SETTINGS } from "@/lib/settings/types";
+import { getSessionUser } from "@/lib/auth/session";
+import { createServerSupabaseClient } from "@/lib/supabase/ssr";
 import { SettingsForm } from "@/components/settings/SettingsForm";
 
 // Reflects live settings; render per-request.
@@ -11,7 +13,9 @@ export default async function SettingsPage() {
   let settings = DEFAULT_SETTINGS;
   let failed = false;
   try {
-    settings = await getSettings();
+    const client = await createServerSupabaseClient();
+    const user = await getSessionUser();
+    settings = await getSettings(user?.id ?? null, client);
   } catch {
     failed = true;
   }

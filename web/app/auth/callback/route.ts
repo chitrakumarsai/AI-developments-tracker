@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { createServerSupabaseClient } from "@/lib/supabase/ssr";
 import { safeRedirectPath } from "@/lib/auth/redirect";
+import { syncProfileOnSignIn } from "@/lib/auth/profile";
 
 /**
  * OAuth / magic-link callback. The provider redirects here with a `code`; we
@@ -20,10 +21,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error) {
+  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error || !data.user) {
     return NextResponse.redirect(`${origin}/sign-in?error=callback`);
   }
+
+  // First moment we hold a verified identity: upsert the profile (owner role is
+  // derived server-side from OWNER_EMAIL) and, for the owner, backfill Phase-1
+  // data. Never blocks sign-in — it self-heals on the next sign-in on failure.
+  await syncProfileOnSignIn({ id: data.user.id, email: data.user.email ?? null });
 
   return NextResponse.redirect(`${origin}${next}`);
 }

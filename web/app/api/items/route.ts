@@ -9,6 +9,8 @@ import {
   type FeedSort,
 } from "@/lib/feed/queries";
 import { categoryForSlug } from "@/lib/feed/categories";
+import { getSessionUser } from "@/lib/auth/session";
+import { createServerSupabaseClient } from "@/lib/supabase/ssr";
 
 const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(MAX_FEED_LIMIT).default(DEFAULT_FEED_LIMIT),
@@ -39,12 +41,20 @@ export async function GET(request: Request) {
   try {
     const category = categoryForSlug(parsed.data.section);
     const sort: FeedSort = parsed.data.sort === "stars" ? "metric" : parsed.data.sort;
-    const items = await getFeedItems({
-      category,
-      sort,
-      window: parsed.data.window,
-      limit: parsed.data.limit,
-    });
+    // Personalize to the caller when signed in (2.2); anon reads the shared feed
+    // via the auth-aware client (RLS anon-read), never service-role.
+    const client = await createServerSupabaseClient();
+    const user = await getSessionUser();
+    const items = await getFeedItems(
+      {
+        category,
+        sort,
+        window: parsed.data.window,
+        limit: parsed.data.limit,
+        userId: user?.id ?? null,
+      },
+      client,
+    );
     return NextResponse.json({
       success: true,
       data: items,

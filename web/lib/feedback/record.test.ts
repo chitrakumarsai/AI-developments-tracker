@@ -3,30 +3,44 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { markRead, recordVote } from "./record";
 
+type Call = {
+  table: string;
+  op: string;
+  payload?: unknown;
+  onConflict?: unknown;
+  eq?: Record<string, string>;
+};
+
 /**
  * Records the calls a fake Supabase client receives so a test can assert the
- * write path hit the right tables with the right payloads. Each terminal call
- * resolves `{ error }`; pass `errorOn` to make one table fail.
+ * per-user write path (2.2) hit the right table with the right payload. Terminal
+ * calls resolve `{ error }`; pass `errorOn` to make a table fail. Both `upsert`
+ * and `delete().eq().eq()` chains are supported.
  */
-function makeClient(errorOn?: "feedback" | "items") {
-  const calls: Array<{ table: string; op: string; payload: unknown; eq?: unknown }> =
-    [];
+function makeClient(errorOn?: "feedback" | "item_reads") {
+  const calls: Call[] = [];
 
   const client = {
     from(table: string) {
       const err = errorOn === table ? { message: `${table} boom` } : null;
       return {
-        insert(payload: unknown) {
-          calls.push({ table, op: "insert", payload });
+        upsert(payload: unknown, options?: { onConflict?: string }) {
+          calls.push({ table, op: "upsert", payload, onConflict: options?.onConflict });
           return Promise.resolve({ error: err });
         },
-        update(payload: unknown) {
-          return {
+        delete() {
+          const eqs: Record<string, string> = {};
+          const chain = {
             eq(col: string, val: string) {
-              calls.push({ table, op: "update", payload, eq: { [col]: val } });
-              return Promise.resolve({ error: err });
+              eqs[col] = val;
+              return chain;
+            },
+            then(resolve: (r: { error: unknown }) => void) {
+              calls.push({ table, op: "delete", eq: { ...eqs } });
+              resolve({ error: err });
             },
           };
+          return chain;
         },
       };
     },
@@ -36,75 +50,74 @@ function makeClient(errorOn?: "feedback" | "items") {
 }
 
 describe("recordVote", () => {
-  it("appends a history row and updates the item's current vote", async () => {
+  it("upserts the user's vote keyed on (user_id, item_id)", async () => {
     const { client, calls } = makeClient();
 
-    await recordVote({ itemId: "item-1", value: "up" }, client);
+    await recordVote({ itemId: "item-1", value: "up" }, "user-a", client);
 
     expect(calls).toContainEqual({
       table: "feedback",
-      op: "insert",
-      payload: { item_id: "item-1", value: "up" },
-    });
-    expect(calls).toContainEqual({
-      table: "items",
-      op: "update",
-      payload: { feedback_value: "up" },
-      eq: { id: "item-1" },
+      op: "upsert",
+      payload: { user_id: "user-a", item_id: "item-1", value: "up" },
+      onConflict: "user_id,item_id",
     });
   });
 
-  it("clears the vote without writing history when value is null", async () => {
+  it("deletes only this user's row when value is null (toggle-off)", async () => {
     const { client, calls } = makeClient();
 
-    await recordVote({ itemId: "item-1", value: null }, client);
+    await recordVote({ itemId: "item-1", value: null }, "user-a", client);
 
-    expect(calls.some((c) => c.table === "feedback")).toBe(false);
     expect(calls).toContainEqual({
-      table: "items",
-      op: "update",
-      payload: { feedback_value: null },
-      eq: { id: "item-1" },
+      table: "feedback",
+      op: "delete",
+      eq: { user_id: "user-a", item_id: "item-1" },
     });
+    // Never touches the global items table anymore.
+    expect(calls.some((c) => c.table === "items")).toBe(false);
   });
 
-  it("throws when the history insert fails", async () => {
+  it("never writes another user's or the global items row", async () => {
+    const { client, calls } = makeClient();
+    await recordVote({ itemId: "item-1", value: "down" }, "user-b", client);
+    expect(calls.every((c) => c.table === "feedback")).toBe(true);
+    const upsert = calls.find((c) => c.op === "upsert");
+    expect((upsert?.payload as { user_id: string }).user_id).toBe("user-b");
+  });
+
+  it("throws when the upsert fails", async () => {
     const { client } = makeClient("feedback");
-    await expect(recordVote({ itemId: "x", value: "down" }, client)).rejects.toThrow(
-      /feedback boom/,
-    );
+    await expect(
+      recordVote({ itemId: "x", value: "down" }, "user-a", client),
+    ).rejects.toThrow(/feedback boom/);
   });
 
-  it("throws when the item update fails", async () => {
-    const { client } = makeClient("items");
-    await expect(recordVote({ itemId: "x", value: "up" }, client)).rejects.toThrow(
-      /items boom/,
-    );
+  it("throws when the clear delete fails", async () => {
+    const { client } = makeClient("feedback");
+    await expect(
+      recordVote({ itemId: "x", value: null }, "user-a", client),
+    ).rejects.toThrow(/feedback boom/);
   });
 });
 
 describe("markRead", () => {
-  it("sets read_state true for the item", async () => {
+  it("upserts an item_reads row for this user", async () => {
     const { client, calls } = makeClient();
 
-    await markRead("item-9", client);
+    await markRead("item-9", "user-a", client);
 
     expect(calls).toContainEqual({
-      table: "items",
-      op: "update",
-      payload: { read_state: true },
-      eq: { id: "item-9" },
+      table: "item_reads",
+      op: "upsert",
+      payload: { user_id: "user-a", item_id: "item-9" },
+      onConflict: "user_id,item_id",
     });
+    // No global items write.
+    expect(calls.some((c) => c.table === "items")).toBe(false);
   });
 
-  it("throws when the update fails", async () => {
-    const { client } = makeClient("items");
-    await expect(markRead("item-9", client)).rejects.toThrow(/items boom/);
-  });
-
-  it("writes no feedback history row", async () => {
-    const { client, calls } = makeClient();
-    await markRead("item-9", client);
-    expect(calls.filter((c) => c.table === "feedback")).toHaveLength(0);
+  it("throws when the upsert fails", async () => {
+    const { client } = makeClient("item_reads");
+    await expect(markRead("item-9", "user-a", client)).rejects.toThrow(/item_reads boom/);
   });
 });

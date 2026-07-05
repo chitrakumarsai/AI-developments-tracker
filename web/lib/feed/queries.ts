@@ -2,9 +2,13 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { getServerClient } from "../supabase/server";
 import type { ItemRow } from "../supabase/types";
 import { rankItems } from "../ranking/score";
+import {
+  annotateWithUserState,
+  loadUserItemState,
+  type UserItemState,
+} from "../feedback/userState";
 import { platformFromSourceName } from "./platform";
 import { DEFAULT_WINDOW, type FeedSort, type FeedState, type FeedWindow } from "./types";
 
@@ -77,6 +81,12 @@ export type FeedQuery = {
   q?: string | null;
   /** Feedback/read-state filter; null/undefined = no state filter. */
   state?: FeedState | null;
+  /**
+   * Signed-in user whose votes/read-state annotate the feed; null = anonymous.
+   * Per-user feedback is private (2.2), so the `state` filter and ranking boost
+   * only reflect this user's own signal.
+   */
+  userId?: string | null;
   /** Max items per source per day (settings); null/undefined = unlimited. */
   perSourceDailyCap?: number | null;
   /** Keep only items matching ANY of these words (settings); empty = no include filter. */
@@ -147,6 +157,22 @@ export function capPerSourceDay(items: ItemRow[], cap: number | null): ItemRow[]
 }
 
 /**
+ * Apply the feedback/read-state filter in JS. In Phase 1 this ran at the DB on
+ * the global `items.read_state`/`items.feedback_value` columns; those are now
+ * per-user (2.2), so we filter on the annotated rows instead. Called after
+ * `annotateWithUserState`, so `read_state`/`feedback_value` reflect THIS user.
+ *  - `unread`:    items the user has not opened.
+ *  - `liked`:     items the user thumbed up.
+ *  - `hide-down`: everything except the user's thumbs-down.
+ */
+export function applyStateFilter(items: ItemRow[], state: FeedState | null | undefined): ItemRow[] {
+  if (!state) return items;
+  if (state === "unread") return items.filter((item) => !item.read_state);
+  if (state === "liked") return items.filter((item) => item.feedback_value === "up");
+  return items.filter((item) => item.feedback_value !== "down"); // hide-down
+}
+
+/**
  * Resolve a derived platform slug (github, hugging-face, reddit, hacker-news,
  * arXiv) to the set of source ids on that platform. Platform isn't a column —
  * it's derived from the source NAME — so we map every source through the same
@@ -186,6 +212,7 @@ export async function getFeedItems(
     tag,
     q,
     state,
+    userId = null,
     perSourceDailyCap = null,
     includeKeywords = [],
     excludeKeywords = [],
@@ -194,19 +221,21 @@ export async function getFeedItems(
     window = DEFAULT_WINDOW,
     limit = INITIAL_FEED_LIMIT,
   }: FeedQuery = {},
-  client: SupabaseClient = getServerClient(),
+  client: SupabaseClient,
 ): Promise<ItemRow[]> {
   const now = Date.now();
   const windowDays = WINDOW_DAYS[window] ?? null;
   const cap = perSourceDailyCap;
   const contentFilters = { includeKeywords, excludeKeywords, minMetric };
-  // Any post-fetch reducer (cap or content filters) means we must over-fetch a
-  // pool and trim, so a limit-sized page isn't left short after filtering.
+  // Any post-fetch reducer (cap, content filters, or the now-per-user state
+  // filter) means we must over-fetch a pool and trim, so a limit-sized page isn't
+  // left short after filtering. `state` moved from DB to JS with per-user data.
   const hasReducers =
     (cap != null && cap > 0) ||
     minMetric != null ||
     includeKeywords.length > 0 ||
-    excludeKeywords.length > 0;
+    excludeKeywords.length > 0 ||
+    state != null;
 
   // Platform is derived from the source name, so resolve it to source ids and
   // filter at the DB level (below) rather than post-filtering a recency pool.
@@ -239,15 +268,9 @@ export async function getFeedItems(
       query = query.or(`title.ilike.*${needle}*,summary.ilike.*${needle}*`);
     }
   }
-  if (state === "unread") {
-    query = query.eq("read_state", false);
-  } else if (state === "liked") {
-    query = query.eq("feedback_value", "up");
-  } else if (state === "hide-down") {
-    // Keep items with no vote or an up vote; drop only thumbs-down. (A plain
-    // `neq.down` would also drop NULLs, so match null-or-up explicitly.)
-    query = query.or("feedback_value.is.null,feedback_value.eq.up");
-  }
+  // NOTE: the feedback/read-state filter is applied in JS after per-user
+  // annotation (see below) — it can no longer run at the DB now that vote and
+  // read-state are per-user rather than global columns on `items`.
   if (windowDays != null) {
     const since = new Date(now - windowDays * MS_PER_DAY).toISOString();
     query = query.gte("published_at", since);
@@ -260,10 +283,14 @@ export async function getFeedItems(
     if (error) {
       throw new Error(`Failed to load items: ${error.message}`);
     }
-    const pool = (data ?? []) as unknown as ItemRow[];
+    const pool = await annotatePool((data ?? []) as unknown as ItemRow[], client, userId);
     const decayDays = windowDays ?? UNBOUNDED_DECAY_DAYS;
-    const ranked = applyContentFilters(rankItems(pool, now, decayDays), contentFilters);
-    return capPerSourceDay(ranked, cap).slice(0, limit);
+    // Rank first (feedback boost uses the per-user vote), then apply the per-user
+    // state filter + content filters, then cap.
+    const ranked = rankItems(pool, now, decayDays);
+    const stateFiltered = applyStateFilter(ranked, state);
+    const contentFiltered = applyContentFilters(stateFiltered, contentFilters);
+    return capPerSourceDay(contentFiltered, cap).slice(0, limit);
   }
 
   query =
@@ -279,7 +306,29 @@ export async function getFeedItems(
   }
   // Unchecked cast: the untyped client returns any[]. Replace with generated
   // types once `supabase gen types typescript --local` is in the toolchain.
-  const rows = (data ?? []) as unknown as ItemRow[];
-  const filtered = applyContentFilters(rows, contentFilters);
+  const rows = await annotatePool((data ?? []) as unknown as ItemRow[], client, userId);
+  const stateFiltered = applyStateFilter(rows, state);
+  const filtered = applyContentFilters(stateFiltered, contentFilters);
   return capPerSourceDay(filtered, cap).slice(0, limit);
+}
+
+/**
+ * Overlay the current user's private vote + read-state onto a fetched pool. The
+ * same client is reused (it's the auth-aware session client, so RLS returns only
+ * this user's rows); anonymous callers get the pool back unannotated.
+ */
+async function annotatePool(
+  pool: ItemRow[],
+  client: SupabaseClient,
+  userId: string | null,
+): Promise<ItemRow[]> {
+  if (pool.length === 0) return pool;
+  // Always annotate — even for anonymous readers — so the Phase-1 GLOBAL
+  // feedback_value/read_state columns still present on `items.*` are reset to
+  // "unvoted / unread" rather than leaking the owner's pre-migration signal onto
+  // the public feed. Signed-in readers get their own private state overlaid.
+  const state: UserItemState = userId
+    ? await loadUserItemState(client, userId, pool.map((item) => item.id))
+    : { votes: new Map(), reads: new Set() };
+  return annotateWithUserState(pool, state);
 }

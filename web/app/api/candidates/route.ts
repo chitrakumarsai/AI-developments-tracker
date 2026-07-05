@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createCandidate } from "@/lib/candidates/persist";
+import { requireOwner } from "@/lib/auth/session";
 
 /** Untrusted body: a proposed source for the rating queue. */
 const bodySchema = z.object({
@@ -13,9 +14,18 @@ const bodySchema = z.object({
 /**
  * POST /api/candidates — add a source to the rating queue (state=suggested).
  * The URL is validated for real only at promote time; here we just store the
- * sanitized proposal. Phase 1: not user-scoped.
+ * sanitized proposal. Owner-only (2.2): the source catalog is curated by the
+ * owner, matching the owner-only RLS on `source_candidates`/`sources`.
  */
 export async function POST(request: Request) {
+  const guard = await requireOwner();
+  if (!guard.ok) {
+    return NextResponse.json(
+      { success: false, data: null, error: guard.error },
+      { status: guard.status },
+    );
+  }
+
   let raw: unknown;
   try {
     raw = await request.json();

@@ -14,6 +14,8 @@ import { feedHref, type FeedHrefParams } from "@/lib/feed/filterHref";
 import { platformForItem, CURATED_PLATFORMS } from "@/lib/feed/platform";
 import { getSettings } from "@/lib/settings/persist";
 import { DEFAULT_SETTINGS } from "@/lib/settings/types";
+import { getSessionUser } from "@/lib/auth/session";
+import { createServerSupabaseClient } from "@/lib/supabase/ssr";
 import type { ItemRow } from "@/lib/supabase/types";
 import { ItemCard } from "./ItemCard";
 import { ActiveFilters } from "./ActiveFilters";
@@ -85,12 +87,19 @@ export async function FeedList({
     state,
   };
 
+  // Auth-aware client + verified user drive per-user personalization (2.2):
+  // settings, feedback, and read-state all scope to this reader via RLS.
+  // Anonymous readers (userId null) get the shared feed with defaults.
+  const client = await createServerSupabaseClient();
+  const user = await getSessionUser();
+  const userId = user?.id ?? null;
+
   // Settings shape the feed (per-source daily cap). A settings hiccup must not
   // break the feed, so fall back to defaults. When the user has filtered to a
   // single source, the cap is moot — show that source's full stream.
   let settings = DEFAULT_SETTINGS;
   try {
-    settings = await getSettings();
+    settings = await getSettings(userId, client);
   } catch {
     settings = DEFAULT_SETTINGS;
   }
@@ -98,21 +107,25 @@ export async function FeedList({
 
   let items: ItemRow[] = [];
   try {
-    items = await getFeedItems({
-      category,
-      source,
-      platform,
-      tag,
-      q,
-      state,
-      perSourceDailyCap,
-      includeKeywords: settings.includeKeywords,
-      excludeKeywords: settings.excludeKeywords,
-      minMetric: settings.minMetric,
-      sort,
-      window,
-      limit,
-    });
+    items = await getFeedItems(
+      {
+        category,
+        source,
+        platform,
+        tag,
+        q,
+        state,
+        userId,
+        perSourceDailyCap,
+        includeKeywords: settings.includeKeywords,
+        excludeKeywords: settings.excludeKeywords,
+        minMetric: settings.minMetric,
+        sort,
+        window,
+        limit,
+      },
+      client,
+    );
   } catch {
     return (
       <Notice
