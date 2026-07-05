@@ -18,6 +18,7 @@ import { feedHref } from "@/lib/feed/filterHref";
 import { listViews, type SavedView } from "@/lib/views/persist";
 import type { SavedFilters } from "@/lib/views/href";
 import { SavedViewsBar } from "@/components/feed/SavedViewsBar";
+import { AuthStatus } from "@/components/auth/AuthStatus";
 
 /** Sections whose items carry a popularity metric, so a Top-starred sort makes sense. */
 const SORTABLE_SLUGS = new Set(["repos", "models"]);
@@ -171,6 +172,7 @@ export default async function Home({
             <Link href="/settings" className="text-muted transition-colors hover:text-ink">
               Settings
             </Link>
+            <AuthStatus />
           </div>
         </div>
         <nav aria-label="Categories" className="mt-4 -mx-1 overflow-x-auto">
