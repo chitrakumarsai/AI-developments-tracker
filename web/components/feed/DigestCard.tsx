@@ -1,5 +1,6 @@
 import { getFeedItems } from "@/lib/feed/queries";
 import { getDigest } from "@/lib/digest/digest";
+import { parseDigest } from "@/lib/digest/parse";
 import type { DigestPeriod } from "@/lib/digest/types";
 
 /** Items sampled for the digest — the window's most relevant. */
@@ -25,10 +26,8 @@ export async function DigestCard({ period }: { period: DigestPeriod }) {
   }
   if (!content) return null;
 
-  const bullets = content
-    .split("\n")
-    .map((line) => line.replace(/^[\s•*-]+/, "").trim())
-    .filter(Boolean);
+  const blocks = parseDigest(content);
+  if (blocks.length === 0) return null;
 
   return (
     <details className="mt-4 rounded-[var(--radius-md)] border border-rule bg-rule/20 px-4 py-3" open>
@@ -36,16 +35,27 @@ export async function DigestCard({ period }: { period: DigestPeriod }) {
         <span className="text-accent">✦</span> {PERIOD_LABEL[period]}
         <span className="ml-2 font-normal text-faint">· AI-summarized</span>
       </summary>
-      <ul className="mt-3 flex flex-col gap-1.5">
-        {bullets.map((line, i) => (
-          <li key={i} className="flex gap-2 text-sm leading-relaxed text-muted">
-            <span aria-hidden="true" className="text-accent">
-              —
-            </span>
-            <span>{line}</span>
-          </li>
+      <div className="mt-3 flex flex-col gap-3">
+        {blocks.map((block, b) => (
+          <div key={b} className="flex flex-col gap-1.5">
+            {block.heading && (
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-faint">
+                {block.heading}
+              </h3>
+            )}
+            <ul className="flex flex-col gap-1.5">
+              {block.items.map((line, i) => (
+                <li key={i} className="flex gap-2 text-sm leading-relaxed text-muted">
+                  <span aria-hidden="true" className="text-accent">
+                    —
+                  </span>
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         ))}
-      </ul>
+      </div>
     </details>
   );
 }
