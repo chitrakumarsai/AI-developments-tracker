@@ -156,7 +156,7 @@ export async function FeedList({
     <>
       <ActiveFilters context={context} sourceLabel={sourceLabel} platformLabel={platformLabel} />
 
-      <ul className="flex flex-col">
+      <ul className="grid grid-cols-1 gap-x-10 lg:grid-cols-2 2xl:grid-cols-3">
         {items.map((item) => (
           <li key={item.id}>
             <ItemCard item={item} context={context} />
