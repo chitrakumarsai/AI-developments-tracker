@@ -1,6 +1,7 @@
 import { getFeedItems } from "@/lib/feed/queries";
 import { getDigest } from "@/lib/digest/digest";
 import { parseDigest } from "@/lib/digest/parse";
+import { createServerSupabaseClient } from "@/lib/supabase/ssr";
 import type { DigestPeriod } from "@/lib/digest/types";
 
 /** Items sampled for the digest — the window's most relevant. */
@@ -19,7 +20,11 @@ const PERIOD_LABEL: Record<DigestPeriod, string> = {
 export async function DigestCard({ period }: { period: DigestPeriod }) {
   let content: string | null = null;
   try {
-    const items = await getFeedItems({ window: period, limit: DIGEST_SAMPLE });
+    // The digest is a shared, non-personalized summary (userId omitted), but it
+    // reads through the anon/auth client so the feed render path never touches
+    // service-role.
+    const client = await createServerSupabaseClient();
+    const items = await getFeedItems({ window: period, limit: DIGEST_SAMPLE }, client);
     content = await getDigest(items, period);
   } catch {
     return null;

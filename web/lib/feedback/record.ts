@@ -2,7 +2,6 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { getServerClient } from "../supabase/server";
 import type { FeedbackValue } from "../supabase/types";
 
 /** A thumbs vote to persist; `null` clears the user's vote on the item. */
@@ -12,49 +11,59 @@ export type VoteInput = {
 };
 
 /**
- * Persist a thumbs vote. The `feedback` table is an append-only history log, and
- * `items.feedback_value` holds the current vote (denormalized so the feed can
- * filter/rank on a plain column). A null `value` clears the current vote without
- * writing history — a toggle-off, not an event worth logging.
+ * Persist a user's thumbs vote (2.2, per-user). One row per (user, item) in
+ * `feedback` — a new vote upserts on that pair, and a null `value` deletes the
+ * row (toggle-off). RLS scopes both to `auth.uid()`, so a user can only ever
+ * write their own vote; `user_id` is set explicitly to satisfy the WITH CHECK.
  *
- * The client is injected (defaults to the server-only service-role client) so
- * the write path is unit-testable without a live database. Throws on any DB
- * error so callers surface a real failure instead of a silent no-op.
+ * The auth-aware client and the verified `userId` are injected by the caller
+ * (the API route resolves both from the session). Throws on any DB error so the
+ * caller surfaces a real failure instead of a silent no-op.
  */
 export async function recordVote(
   { itemId, value }: VoteInput,
-  client: SupabaseClient = getServerClient(),
+  userId: string,
+  client: SupabaseClient,
 ): Promise<void> {
-  if (value !== null) {
+  if (value === null) {
     const { error } = await client
       .from("feedback")
-      .insert({ item_id: itemId, value });
+      .delete()
+      .eq("user_id", userId)
+      .eq("item_id", itemId);
     if (error) {
-      throw new Error(`Failed to record feedback: ${error.message}`);
+      throw new Error(`Failed to clear feedback: ${error.message}`);
     }
+    return;
   }
 
   const { error } = await client
-    .from("items")
-    .update({ feedback_value: value })
-    .eq("id", itemId);
+    .from("feedback")
+    .upsert(
+      { user_id: userId, item_id: itemId, value },
+      { onConflict: "user_id,item_id" },
+    );
   if (error) {
-    throw new Error(`Failed to update item vote: ${error.message}`);
+    throw new Error(`Failed to record feedback: ${error.message}`);
   }
 }
 
 /**
- * Mark an item as read (the user opened it at the source). Idempotent — setting
- * an already-true flag is harmless. Throws on DB error.
+ * Mark an item as read for this user (2.2, per-user). Inserts into `item_reads`;
+ * idempotent via ON CONFLICT so re-opening is harmless. RLS scopes to
+ * `auth.uid()`. Throws on DB error.
  */
 export async function markRead(
   itemId: string,
-  client: SupabaseClient = getServerClient(),
+  userId: string,
+  client: SupabaseClient,
 ): Promise<void> {
   const { error } = await client
-    .from("items")
-    .update({ read_state: true })
-    .eq("id", itemId);
+    .from("item_reads")
+    .upsert(
+      { user_id: userId, item_id: itemId },
+      { onConflict: "user_id,item_id", ignoreDuplicates: true },
+    );
   if (error) {
     throw new Error(`Failed to mark item read: ${error.message}`);
   }

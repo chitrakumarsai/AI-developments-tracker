@@ -93,6 +93,34 @@ function makeClient(rows: ItemRow[]): SupabaseClient {
   return { from: () => builder } as unknown as SupabaseClient;
 }
 
+/**
+ * Like `makeClient`, but also serves the per-user feedback / item_reads tables so
+ * a test can drive the 2.2 state filter through real annotation. The items query
+ * reuses `makeClient`; `feedback`/`item_reads` resolve from the provided per-user
+ * state (select→eq→in chain).
+ */
+function makeUserClient(
+  rows: ItemRow[],
+  userState: {
+    feedback?: Array<{ item_id: string; value: "up" | "down" }>;
+    reads?: string[];
+  },
+): SupabaseClient {
+  const items = makeClient(rows) as unknown as { from: (t: string) => unknown };
+  const resolve = (data: unknown) => ({
+    select: () => ({ eq: () => ({ in: () => Promise.resolve({ data, error: null }) }) }),
+  });
+  return {
+    from(table: string) {
+      if (table === "feedback") return resolve(userState.feedback ?? []);
+      if (table === "item_reads") {
+        return resolve((userState.reads ?? []).map((id) => ({ item_id: id })));
+      }
+      return items.from(table);
+    },
+  } as unknown as SupabaseClient;
+}
+
 // `recent` sort keeps ordering trivial so tests assert on the filtered SET,
 // independent of relevance-ranking internals.
 const RECENT = { sort: "recent" as const, window: "all" as const };
@@ -184,39 +212,53 @@ describe("getFeedItems filtering", () => {
     expect(result.map((r) => r.id).sort()).toEqual(["a", "b"]);
   });
 
-  it("restricts to unread items when state=unread", async () => {
-    const client = makeClient([
-      item({ id: "a", read_state: false }),
-      item({ id: "b", read_state: true }),
-    ]);
+  it("restricts to the user's own unread items when state=unread", async () => {
+    // read-state is per-user (2.2): "b" is read by THIS user via item_reads.
+    const client = makeUserClient([item({ id: "a" }), item({ id: "b" })], {
+      reads: ["b"],
+    });
 
-    const result = await getFeedItems({ ...RECENT, state: "unread" }, client);
-
-    expect(result.map((r) => r.id)).toEqual(["a"]);
-  });
-
-  it("restricts to thumbs-up items when state=liked", async () => {
-    const client = makeClient([
-      item({ id: "a", feedback_value: "up" }),
-      item({ id: "b", feedback_value: "down" }),
-      item({ id: "c", feedback_value: null }),
-    ]);
-
-    const result = await getFeedItems({ ...RECENT, state: "liked" }, client);
+    const result = await getFeedItems({ ...RECENT, state: "unread", userId: "u" }, client);
 
     expect(result.map((r) => r.id)).toEqual(["a"]);
   });
 
-  it("drops only thumbs-down items when state=hide-down (keeps null + up)", async () => {
-    const client = makeClient([
-      item({ id: "a", feedback_value: null }),
-      item({ id: "b", feedback_value: "up" }),
-      item({ id: "c", feedback_value: "down" }),
-    ]);
+  it("restricts to the user's own thumbs-up when state=liked", async () => {
+    const client = makeUserClient(
+      [item({ id: "a" }), item({ id: "b" }), item({ id: "c" })],
+      { feedback: [{ item_id: "a", value: "up" }, { item_id: "b", value: "down" }] },
+    );
 
-    const result = await getFeedItems({ ...RECENT, state: "hide-down" }, client);
+    const result = await getFeedItems({ ...RECENT, state: "liked", userId: "u" }, client);
+
+    expect(result.map((r) => r.id)).toEqual(["a"]);
+  });
+
+  it("drops only the user's thumbs-down when state=hide-down (keeps unvoted + up)", async () => {
+    const client = makeUserClient(
+      [item({ id: "a" }), item({ id: "b" }), item({ id: "c" })],
+      { feedback: [{ item_id: "b", value: "up" }, { item_id: "c", value: "down" }] },
+    );
+
+    const result = await getFeedItems({ ...RECENT, state: "hide-down", userId: "u" }, client);
 
     expect(result.map((r) => r.id).sort()).toEqual(["a", "b"]);
+  });
+
+  it("does not leak another user's vote — anon requests see all items unvoted", async () => {
+    // Global Phase-1 columns are still on the row, but an anon (no userId) read
+    // must reset them, so a 'liked' filter finds nothing rather than the owner's
+    // pre-migration up-votes.
+    const client = makeClient([
+      item({ id: "a", feedback_value: "up", read_state: true }),
+      item({ id: "b", feedback_value: "down" }),
+    ]);
+
+    const liked = await getFeedItems({ ...RECENT, state: "liked" }, client);
+    expect(liked).toHaveLength(0);
+
+    const unread = await getFeedItems({ ...RECENT, state: "unread" }, client);
+    expect(unread.map((r) => r.id).sort()).toEqual(["a", "b"]);
   });
 
   it("surfaces a Supabase error as a thrown error", async () => {

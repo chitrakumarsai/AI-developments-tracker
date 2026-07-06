@@ -2,11 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { getServerClient } from "../supabase/server";
 import { DEFAULT_SETTINGS, type AppSettings } from "./types";
-
-/** The one settings row (Phase-1 singleton, enforced by `id = 1`). */
-const SETTINGS_ID = 1;
 
 type SettingsRow = {
   top_per_source_day: number | null;
@@ -25,17 +21,22 @@ function fromRow(row: SettingsRow): AppSettings {
 }
 
 /**
- * Load the app settings. Returns typed defaults when no row exists yet, so the
- * feed always has a value to work with. Injectable client for tests; throws on
- * a real DB error (callers on the feed path catch and fall back to defaults).
+ * Load the signed-in user's settings (2.2, per-user: one row per `user_id`).
+ * Returns typed defaults when the user has no row yet (or is anonymous), so the
+ * feed always has a value to work with. The auth-aware client + verified `userId`
+ * are injected by the caller; RLS scopes the read to the user's own row. Throws
+ * on a real DB error (feed-path callers catch and fall back to defaults).
  */
 export async function getSettings(
-  client: SupabaseClient = getServerClient(),
+  userId: string | null | undefined,
+  client: SupabaseClient,
 ): Promise<AppSettings> {
+  if (!userId) return DEFAULT_SETTINGS;
+
   const { data, error } = await client
     .from("app_settings")
     .select("top_per_source_day, include_keywords, exclude_keywords, min_metric")
-    .eq("id", SETTINGS_ID)
+    .eq("user_id", userId)
     .maybeSingle();
   if (error) {
     throw new Error(`Failed to load settings: ${error.message}`);
@@ -44,21 +45,26 @@ export async function getSettings(
 }
 
 /**
- * Persist the settings singleton (upsert on the fixed id). Input is assumed
- * already validated/normalized at the route boundary. Throws on DB error.
+ * Persist the signed-in user's settings (upsert on `user_id`, one row per user).
+ * Input is assumed already validated/normalized at the route boundary. `user_id`
+ * is set explicitly so RLS's WITH CHECK passes. Throws on DB error.
  */
 export async function saveSettings(
   input: AppSettings,
-  client: SupabaseClient = getServerClient(),
+  userId: string,
+  client: SupabaseClient,
 ): Promise<void> {
-  const { error } = await client.from("app_settings").upsert({
-    id: SETTINGS_ID,
-    top_per_source_day: input.topPerSourceDay,
-    include_keywords: input.includeKeywords,
-    exclude_keywords: input.excludeKeywords,
-    min_metric: input.minMetric,
-    updated_at: new Date().toISOString(),
-  });
+  const { error } = await client.from("app_settings").upsert(
+    {
+      user_id: userId,
+      top_per_source_day: input.topPerSourceDay,
+      include_keywords: input.includeKeywords,
+      exclude_keywords: input.excludeKeywords,
+      min_metric: input.minMetric,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" },
+  );
   if (error) {
     throw new Error(`Failed to save settings: ${error.message}`);
   }

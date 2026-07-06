@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { recordVote } from "@/lib/feedback/record";
 import { getSessionUser } from "@/lib/auth/session";
+import { createServerSupabaseClient } from "@/lib/supabase/ssr";
 
 /** Untrusted request body: an item uuid and a vote (or null to clear it). */
 const bodySchema = z.object({
@@ -13,8 +14,8 @@ const bodySchema = z.object({
 /**
  * POST /api/feedback — persist a thumbs up/down (or clear it) on an item.
  * Personalization requires sign-in (2.1 access model): anonymous callers get 401
- * and the client nudges them to /sign-in. The write still runs via the
- * service-role client in `recordVote`; per-user scoping (`user_id`) lands in 2.2.
+ * and the client nudges them to /sign-in. The vote is written per-user (2.2) via
+ * the auth-aware client, so RLS scopes it to the signed-in user's own rows.
  */
 export async function POST(request: Request) {
   const user = await getSessionUser();
@@ -44,7 +45,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    await recordVote(parsed.data);
+    const client = await createServerSupabaseClient();
+    await recordVote(parsed.data, user.id, client);
     return NextResponse.json({ success: true, data: null });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

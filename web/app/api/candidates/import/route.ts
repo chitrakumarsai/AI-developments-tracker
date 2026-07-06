@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { addCandidates, type NewCandidate } from "@/lib/candidates/persist";
 import { extractCandidateUrls } from "@/lib/candidates/extract";
+import { requireOwner } from "@/lib/auth/session";
 
 /** Untrusted body: a pasted list/article to mine for candidate URLs. */
 const bodySchema = z.object({
@@ -15,9 +16,17 @@ const bodySchema = z.object({
  * POST /api/candidates/import — extract http(s) URLs from a pasted blob and add
  * each new one to the rating queue (state=suggested). We do NOT fetch the URLs
  * here (no SSRF surface); real feed validation happens at promote time. Dupes
- * against the queue and live sources are skipped. Phase 1: not user-scoped.
+ * against the queue and live sources are skipped. Owner-only (2.2).
  */
 export async function POST(request: Request) {
+  const guard = await requireOwner();
+  if (!guard.ok) {
+    return NextResponse.json(
+      { success: false, data: null, error: guard.error },
+      { status: guard.status },
+    );
+  }
+
   let raw: unknown;
   try {
     raw = await request.json();

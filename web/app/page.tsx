@@ -19,6 +19,8 @@ import { listViews, type SavedView } from "@/lib/views/persist";
 import type { SavedFilters } from "@/lib/views/href";
 import { SavedViewsBar } from "@/components/feed/SavedViewsBar";
 import { AuthStatus } from "@/components/auth/AuthStatus";
+import { getSessionUser } from "@/lib/auth/session";
+import { createServerSupabaseClient } from "@/lib/supabase/ssr";
 
 /** Sections whose items carry a popularity metric, so a Top-starred sort makes sense. */
 const SORTABLE_SLUGS = new Set(["repos", "models"]);
@@ -150,9 +152,14 @@ export default async function Home({
     active.slug !== "all" ||
     sort !== "relevant" ||
     window !== DEFAULT_WINDOW;
+  // Saved views are per-user (2.2): only the signed-in reader's presets, RLS-scoped.
   let savedViews: SavedView[] = [];
   try {
-    savedViews = await listViews();
+    const user = await getSessionUser();
+    if (user) {
+      const client = await createServerSupabaseClient();
+      savedViews = await listViews(user.id, client);
+    }
   } catch {
     savedViews = [];
   }

@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { getCandidate, promoteCandidate } from "@/lib/candidates/persist";
 import { validateFeedUrl } from "@/lib/candidates/validate";
+import { requireOwner } from "@/lib/auth/session";
 
 /** Untrusted body: the catalog metadata to promote a candidate with. */
 const bodySchema = z.object({
@@ -19,9 +20,18 @@ const bodySchema = z.object({
  *
  * Validation runs BEFORE any write and includes the SSRF guard, so an unsafe or
  * unreachable URL is rejected (422) with a reason and no source is created
- * (§12.7 — untrusted external ingestion).
+ * (§12.7 — untrusted external ingestion). Owner-only (2.2): promoting writes the
+ * live `sources` catalog that every user's feed reads from.
  */
 export async function POST(request: Request) {
+  const guard = await requireOwner();
+  if (!guard.ok) {
+    return NextResponse.json(
+      { success: false, data: null, error: guard.error },
+      { status: guard.status },
+    );
+  }
+
   let raw: unknown;
   try {
     raw = await request.json();

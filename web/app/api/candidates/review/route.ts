@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { reviewCandidate } from "@/lib/candidates/persist";
+import { requireOwner } from "@/lib/auth/session";
 
 /** Untrusted body: rate a candidate (1..5) or skip it. */
 const bodySchema = z.discriminatedUnion("action", [
@@ -9,8 +10,16 @@ const bodySchema = z.discriminatedUnion("action", [
   z.object({ id: z.string().uuid(), action: z.literal("skip") }),
 ]);
 
-/** POST /api/candidates/review — rate or skip a queued candidate. */
+/** POST /api/candidates/review — rate or skip a queued candidate. Owner-only (2.2). */
 export async function POST(request: Request) {
+  const guard = await requireOwner();
+  if (!guard.ok) {
+    return NextResponse.json(
+      { success: false, data: null, error: guard.error },
+      { status: guard.status },
+    );
+  }
+
   let raw: unknown;
   try {
     raw = await request.json();

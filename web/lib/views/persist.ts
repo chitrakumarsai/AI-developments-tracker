@@ -2,10 +2,9 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { getServerClient } from "../supabase/server";
 import type { SavedFilters } from "./href";
 
-/** A stored filter preset. Phase 1 is single-user, so views aren't user-scoped yet. */
+/** A stored filter preset, owned by one user (2.2). */
 export type SavedView = {
   id: string;
   name: string;
@@ -18,27 +17,36 @@ export type CreateViewInput = {
 };
 
 /**
- * Persist a named filter preset. The client is injected (defaults to the
- * server-only service-role client) so this is unit-testable without a database.
- * Throws on DB error.
+ * Persist a named filter preset for the signed-in user (2.2, per-user). `user_id`
+ * is set explicitly so RLS's WITH CHECK passes; the auth-aware client + verified
+ * `userId` are injected by the caller. Throws on DB error.
  */
 export async function createView(
   { name, filters }: CreateViewInput,
-  client: SupabaseClient = getServerClient(),
+  userId: string,
+  client: SupabaseClient,
 ): Promise<void> {
-  const { error } = await client.from("saved_views").insert({ name, filters });
+  const { error } = await client
+    .from("saved_views")
+    .insert({ user_id: userId, name, filters });
   if (error) {
     throw new Error(`Failed to save view: ${error.message}`);
   }
 }
 
-/** List saved views, oldest first (stable order in the UI). Throws on DB error. */
+/**
+ * List the user's saved views, oldest first (stable order in the UI). RLS already
+ * scopes to the owner, and the explicit `user_id` filter keeps the intent clear
+ * (and correct even under the service-role client). Throws on DB error.
+ */
 export async function listViews(
-  client: SupabaseClient = getServerClient(),
+  userId: string,
+  client: SupabaseClient,
 ): Promise<SavedView[]> {
   const { data, error } = await client
     .from("saved_views")
     .select("id, name, filters")
+    .eq("user_id", userId)
     .order("created_at", { ascending: true });
   if (error) {
     throw new Error(`Failed to load views: ${error.message}`);
@@ -46,12 +54,21 @@ export async function listViews(
   return (data ?? []) as unknown as SavedView[];
 }
 
-/** Delete a saved view by id. Throws on DB error. */
+/**
+ * Delete one of the user's saved views by id. Scoped by `user_id` in addition to
+ * RLS so a tampered id can't touch another user's row even under service-role.
+ * Throws on DB error.
+ */
 export async function deleteView(
   id: string,
-  client: SupabaseClient = getServerClient(),
+  userId: string,
+  client: SupabaseClient,
 ): Promise<void> {
-  const { error } = await client.from("saved_views").delete().eq("id", id);
+  const { error } = await client
+    .from("saved_views")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
   if (error) {
     throw new Error(`Failed to delete view: ${error.message}`);
   }
