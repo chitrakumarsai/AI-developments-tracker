@@ -4,6 +4,7 @@ import { z } from "zod";
 import { recordVote } from "@/lib/feedback/record";
 import { getSessionUser } from "@/lib/auth/session";
 import { createServerSupabaseClient } from "@/lib/supabase/ssr";
+import { enforceRateLimit } from "@/lib/rate-limit/limiter";
 
 /** Untrusted request body: an item uuid and a vote (or null to clear it). */
 const bodySchema = z.object({
@@ -25,6 +26,9 @@ export async function POST(request: Request) {
       { status: 401 },
     );
   }
+
+  const limited = await enforceRateLimit("feedback", `user:${user.id}`);
+  if (limited) return limited;
 
   let raw: unknown;
   try {

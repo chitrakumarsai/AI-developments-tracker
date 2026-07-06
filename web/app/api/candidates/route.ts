@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { createCandidate } from "@/lib/candidates/persist";
 import { requireOwner } from "@/lib/auth/session";
+import { enforceRateLimit } from "@/lib/rate-limit/limiter";
 
 /** Untrusted body: a proposed source for the rating queue. */
 const bodySchema = z.object({
@@ -25,6 +26,9 @@ export async function POST(request: Request) {
       { status: guard.status },
     );
   }
+
+  const limited = await enforceRateLimit("candidates", `user:${guard.user.id}`);
+  if (limited) return limited;
 
   let raw: unknown;
   try {
