@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { reviewCandidate } from "@/lib/candidates/persist";
 import { requireOwner } from "@/lib/auth/session";
+import { enforceRateLimit } from "@/lib/rate-limit/limiter";
 
 /** Untrusted body: rate a candidate (1..5) or skip it. */
 const bodySchema = z.discriminatedUnion("action", [
@@ -19,6 +20,9 @@ export async function POST(request: Request) {
       { status: guard.status },
     );
   }
+
+  const limited = await enforceRateLimit("candidates", `user:${guard.user.id}`);
+  if (limited) return limited;
 
   let raw: unknown;
   try {

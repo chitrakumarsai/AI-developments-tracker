@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getServerClient } from "@/lib/supabase/server";
 import { runIngestion } from "@/lib/ingestion/run";
 import { isAuthorizedCron } from "@/lib/http/cron-auth";
+import { enforceRateLimit, clientIp } from "@/lib/rate-limit/limiter";
 
 // Ingestion has side effects and must never be statically cached.
 export const dynamic = "force-dynamic";
@@ -23,6 +24,9 @@ export async function GET(request: Request) {
       { status: 401 },
     );
   }
+
+  const limited = await enforceRateLimit("cron", clientIp(request));
+  if (limited) return limited;
 
   try {
     const client = getServerClient();

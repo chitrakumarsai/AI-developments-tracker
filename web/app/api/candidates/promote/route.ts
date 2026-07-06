@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getCandidate, promoteCandidate } from "@/lib/candidates/persist";
 import { validateFeedUrl } from "@/lib/candidates/validate";
 import { requireOwner } from "@/lib/auth/session";
+import { enforceRateLimit } from "@/lib/rate-limit/limiter";
 
 /** Untrusted body: the catalog metadata to promote a candidate with. */
 const bodySchema = z.object({
@@ -31,6 +32,9 @@ export async function POST(request: Request) {
       { status: guard.status },
     );
   }
+
+  const limited = await enforceRateLimit("candidates", `user:${guard.user.id}`);
+  if (limited) return limited;
 
   let raw: unknown;
   try {

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { addCandidates, type NewCandidate } from "@/lib/candidates/persist";
 import { extractCandidateUrls } from "@/lib/candidates/extract";
 import { requireOwner } from "@/lib/auth/session";
+import { enforceRateLimit } from "@/lib/rate-limit/limiter";
 
 /** Untrusted body: a pasted list/article to mine for candidate URLs. */
 const bodySchema = z.object({
@@ -26,6 +27,9 @@ export async function POST(request: Request) {
       { status: guard.status },
     );
   }
+
+  const limited = await enforceRateLimit("candidates", `user:${guard.user.id}`);
+  if (limited) return limited;
 
   let raw: unknown;
   try {
