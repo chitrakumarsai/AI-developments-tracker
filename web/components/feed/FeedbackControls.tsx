@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 import type { FeedbackValue } from "@/lib/supabase/types";
 
@@ -21,6 +22,7 @@ const BUTTON =
 export function FeedbackControls({ itemId, initialValue }: FeedbackControlsProps) {
   const [value, setValue] = useState<FeedbackValue | null>(initialValue);
   const [failed, setFailed] = useState(false);
+  const router = useRouter();
 
   async function vote(next: FeedbackValue) {
     const target = value === next ? null : next; // re-tapping the active vote clears it
@@ -33,6 +35,14 @@ export function FeedbackControls({ itemId, initialValue }: FeedbackControlsProps
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ itemId, value: target }),
       });
+      // Anonymous visitor: rating needs an account. Roll back the optimistic vote
+      // and send them to sign-in with a return path, rather than a dead error.
+      if (res.status === 401) {
+        setValue(previous);
+        const returnTo = `${window.location.pathname}${window.location.search}`;
+        router.push(`/sign-in?next=${encodeURIComponent(returnTo)}`);
+        return;
+      }
       if (!res.ok) throw new Error(`Feedback failed: ${res.status}`);
     } catch {
       setValue(previous); // rollback
