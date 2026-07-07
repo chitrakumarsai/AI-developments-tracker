@@ -21,8 +21,11 @@ describe("clientIp", () => {
 
 describe("enforceRateLimit — fails open when Upstash is not configured", () => {
   beforeEach(() => {
+    // Both accepted naming conventions must be absent to prove fail-open.
     vi.stubEnv("UPSTASH_REDIS_REST_URL", "");
     vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "");
+    vi.stubEnv("KV_REST_API_URL", "");
+    vi.stubEnv("KV_REST_API_TOKEN", "");
   });
 
   afterEach(() => {
