@@ -25,8 +25,10 @@ const LIMITS: Record<RateLimitBucket, { tokens: number; window: `${number} s` }>
 };
 
 function readUpstashEnv(): { url: string; token: string } | null {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  // Vercel's Upstash/KV Marketplace integration injects KV_REST_API_URL/TOKEN;
+  // a manual Upstash setup uses UPSTASH_REDIS_REST_URL/TOKEN. Accept either.
+  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return null;
   return { url, token };
 }
