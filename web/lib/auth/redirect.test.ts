@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { DEFAULT_REDIRECT, safeRedirectPath } from "./redirect";
+import { DEFAULT_REDIRECT, safeRedirectPath, signInPath } from "./redirect";
 
 describe("safeRedirectPath", () => {
   test("allows a same-origin absolute path", () => {
@@ -32,5 +32,23 @@ describe("safeRedirectPath", () => {
   test("rejects a relative path that is not origin-absolute", () => {
     expect(safeRedirectPath("settings")).toBe(DEFAULT_REDIRECT);
     expect(safeRedirectPath("../secret")).toBe(DEFAULT_REDIRECT);
+  });
+});
+
+describe("signInPath", () => {
+  test("carries the target path as an encoded next param", () => {
+    expect(signInPath("/feed")).toBe("/sign-in?next=%2Ffeed");
+    expect(signInPath("/settings")).toBe("/sign-in?next=%2Fsettings");
+  });
+
+  test("preserves a query string on the target, fully encoded", () => {
+    expect(signInPath("/feed?section=repos&window=week")).toBe(
+      "/sign-in?next=%2Ffeed%3Fsection%3Drepos%26window%3Dweek",
+    );
+  });
+
+  test("falls back to the default target for an off-origin or malformed target", () => {
+    expect(signInPath("//evil.com")).toBe("/sign-in?next=%2Ffeed");
+    expect(signInPath("https://evil.com")).toBe("/sign-in?next=%2Ffeed");
   });
 });

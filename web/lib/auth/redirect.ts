@@ -5,7 +5,10 @@
  * fall back to "/" for anything else — protocol-relative (`//evil.com`),
  * absolute URLs, backslash tricks, and control characters are all rejected.
  */
-export const DEFAULT_REDIRECT = "/";
+// Post-auth default target. The gated app lives at /feed (2.4 — `/` is the
+// public landing, which would just bounce a signed-in user to /feed anyway), so
+// send authenticated users straight there.
+export const DEFAULT_REDIRECT = "/feed";
 
 /** True if the string contains any C0 control char (0x00–0x1F) or DEL (0x7F). */
 function hasControlChar(value: string): boolean {
@@ -29,4 +32,13 @@ export function safeRedirectPath(raw: string | null | undefined): string {
   if (hasControlChar(raw)) return DEFAULT_REDIRECT;
 
   return raw;
+}
+
+/**
+ * Build the sign-in URL that returns the user to `nextPath` after authenticating
+ * (2.4 gate). `nextPath` passes through the open-redirect guard above so a gate
+ * can never bounce a user off-origin, and the value is percent-encoded.
+ */
+export function signInPath(nextPath: string): string {
+  return `/sign-in?next=${encodeURIComponent(safeRedirectPath(nextPath))}`;
 }

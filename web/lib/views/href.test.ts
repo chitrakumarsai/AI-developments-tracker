@@ -60,16 +60,16 @@ describe("normalizeFilters", () => {
 describe("viewToHref", () => {
   it("builds the feed URL for a saved view", () => {
     expect(viewToHref({ section: "repos", window: "week", tag: "agents" })).toBe(
-      "/?section=repos&window=week&tag=agents",
+      "/feed?section=repos&window=week&tag=agents",
     );
   });
 
   it("ignores junk and produces a safe URL", () => {
-    expect(viewToHref({ evil: "javascript:alert(1)", sort: "bogus" })).toBe("/");
+    expect(viewToHref({ evil: "javascript:alert(1)", sort: "bogus" })).toBe("/feed");
   });
 
-  it("returns / for an empty view", () => {
-    expect(viewToHref({})).toBe("/");
-    expect(viewToHref(null)).toBe("/");
+  it("returns the bare feed base for an empty view", () => {
+    expect(viewToHref({})).toBe("/feed");
+    expect(viewToHref(null)).toBe("/feed");
   });
 });

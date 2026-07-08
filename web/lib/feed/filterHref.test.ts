@@ -4,48 +4,48 @@ import { feedHref, type FeedHrefParams } from "./filterHref";
 
 describe("feedHref", () => {
   it("returns bare / for empty/default state", () => {
-    expect(feedHref()).toBe("/");
-    expect(feedHref({ section: "all", sort: "relevant", window: "month" })).toBe("/");
+    expect(feedHref()).toBe("/feed");
+    expect(feedHref({ section: "all", sort: "relevant", window: "month" })).toBe("/feed");
   });
 
   it("omits the default window and the relevant sort", () => {
-    expect(feedHref({ window: "month" })).toBe("/");
-    expect(feedHref({ sort: "relevant" })).toBe("/");
+    expect(feedHref({ window: "month" })).toBe("/feed");
+    expect(feedHref({ sort: "relevant" })).toBe("/feed");
   });
 
   it("encodes sort as its URL token", () => {
-    expect(feedHref({ sort: "metric" })).toBe("/?sort=stars");
-    expect(feedHref({ sort: "recent" })).toBe("/?sort=recent");
+    expect(feedHref({ sort: "metric" })).toBe("/feed?sort=stars");
+    expect(feedHref({ sort: "recent" })).toBe("/feed?sort=recent");
   });
 
   it("sets section, window, source and paging when non-default", () => {
-    expect(feedHref({ section: "repos" })).toBe("/?section=repos");
-    expect(feedHref({ window: "week" })).toBe("/?window=week");
-    expect(feedHref({ source: "abc-123" })).toBe("/?source=abc-123");
-    expect(feedHref({ show: 40 })).toBe("/?show=40");
+    expect(feedHref({ section: "repos" })).toBe("/feed?section=repos");
+    expect(feedHref({ window: "week" })).toBe("/feed?window=week");
+    expect(feedHref({ source: "abc-123" })).toBe("/feed?source=abc-123");
+    expect(feedHref({ show: 40 })).toBe("/feed?show=40");
   });
 
   it("percent-encodes an untrusted tag value", () => {
-    expect(feedHref({ tag: "local llm" })).toBe("/?tag=local+llm");
-    expect(feedHref({ tag: "a&b=c" })).toBe("/?tag=a%26b%3Dc");
+    expect(feedHref({ tag: "local llm" })).toBe("/feed?tag=local+llm");
+    expect(feedHref({ tag: "a&b=c" })).toBe("/feed?tag=a%26b%3Dc");
   });
 
   it("sets and percent-encodes a search query", () => {
-    expect(feedHref({ q: "diffusion" })).toBe("/?q=diffusion");
-    expect(feedHref({ q: "vision transformer" })).toBe("/?q=vision+transformer");
-    expect(feedHref({ q: "a&b" })).toBe("/?q=a%26b");
+    expect(feedHref({ q: "diffusion" })).toBe("/feed?q=diffusion");
+    expect(feedHref({ q: "vision transformer" })).toBe("/feed?q=vision+transformer");
+    expect(feedHref({ q: "a&b" })).toBe("/feed?q=a%26b");
   });
 
   it("omits an empty search query", () => {
-    expect(feedHref({ q: "" })).toBe("/");
-    expect(feedHref({ q: null })).toBe("/");
+    expect(feedHref({ q: "" })).toBe("/feed");
+    expect(feedHref({ q: null })).toBe("/feed");
   });
 
   it("sets the feedback/read state param", () => {
-    expect(feedHref({ state: "unread" })).toBe("/?state=unread");
-    expect(feedHref({ state: "liked" })).toBe("/?state=liked");
-    expect(feedHref({ state: "hide-down" })).toBe("/?state=hide-down");
-    expect(feedHref({ state: null })).toBe("/");
+    expect(feedHref({ state: "unread" })).toBe("/feed?state=unread");
+    expect(feedHref({ state: "liked" })).toBe("/feed?state=liked");
+    expect(feedHref({ state: "hide-down" })).toBe("/feed?state=hide-down");
+    expect(feedHref({ state: null })).toBe("/feed");
   });
 
   it("combines multiple filters in a stable order", () => {
@@ -59,7 +59,7 @@ describe("feedHref", () => {
       show: 60,
     });
     expect(href).toBe(
-      "/?section=social&sort=recent&window=week&source=src-9&tag=agents&q=rlhf&show=60",
+      "/feed?section=social&sort=recent&window=week&source=src-9&tag=agents&q=rlhf&show=60",
     );
   });
 
@@ -71,10 +71,10 @@ describe("feedHref", () => {
       tag: "rag",
     };
     expect(feedHref({ ...context, source: null, show: null })).toBe(
-      "/?section=repos&window=week&tag=rag",
+      "/feed?section=repos&window=week&tag=rag",
     );
     expect(feedHref({ ...context, tag: null, show: null })).toBe(
-      "/?section=repos&window=week&source=src-1",
+      "/feed?section=repos&window=week&source=src-1",
     );
   });
 });
