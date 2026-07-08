@@ -1,8 +1,40 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { createSource, listSourcesWithCounts } from "./persist";
+import {
+  createSource,
+  listSourcesWithCounts,
+  setSourceStatus,
+  setSourcePriority,
+  updateSourceMeta,
+} from "./persist";
 import type { SourceRow } from "../supabase/types";
+
+/**
+ * Fake client for the single-table `.update(payload).eq("id", id)` mutations.
+ * Records the update payload + id filter; `errorOn:"sources"` fails the write.
+ */
+function makeUpdateClient(opts?: { errorOn?: "sources" }) {
+  const calls: Array<{ table: string; payload: unknown; id: unknown }> = [];
+  const err = opts?.errorOn === "sources" ? { message: "sources boom" } : null;
+
+  const client = {
+    from(table: string) {
+      return {
+        update(payload: unknown) {
+          return {
+            eq(col: string, val: string) {
+              calls.push({ table, payload, id: { [col]: val } });
+              return Promise.resolve({ error: err });
+            },
+          };
+        },
+      };
+    },
+  } as unknown as SupabaseClient;
+
+  return { client, calls };
+}
 
 /**
  * Fake client for createSource: records the insert payload and serves the
@@ -166,5 +198,77 @@ describe("listSourcesWithCounts", () => {
   it("throws when the item count read fails", async () => {
     const { client } = makeListClient({ sources: [sourceRow("a")], errorOn: "items" });
     await expect(listSourcesWithCounts(client)).rejects.toThrow(/items boom/);
+  });
+
+  it("sinks archived sources to the bottom, keeping live order", async () => {
+    const { client } = makeListClient({
+      sources: [
+        sourceRow("z", { status: "archived" }),
+        sourceRow("a", { status: "active" }),
+        sourceRow("b", { status: "paused" }),
+      ],
+    });
+    const rows = await listSourcesWithCounts(client);
+    expect(rows.map((r) => r.id)).toEqual(["a", "b", "z"]);
+  });
+});
+
+describe("setSourceStatus", () => {
+  it("updates the status for the given id", async () => {
+    const { client, calls } = makeUpdateClient();
+    await setSourceStatus("s1", "paused", client);
+    expect(calls).toEqual([
+      { table: "sources", payload: { status: "paused" }, id: { id: "s1" } },
+    ]);
+  });
+
+  it("throws on DB error", async () => {
+    const { client } = makeUpdateClient({ errorOn: "sources" });
+    await expect(setSourceStatus("s1", "archived", client)).rejects.toThrow(/sources boom/);
+  });
+});
+
+describe("setSourcePriority", () => {
+  it("clamps and rounds the priority before writing", async () => {
+    const { client, calls } = makeUpdateClient();
+    await setSourcePriority("s1", 250.7, client);
+    expect(calls[0].payload).toEqual({ priority: 100 });
+
+    const below = makeUpdateClient();
+    await setSourcePriority("s1", -5, below.client);
+    expect(below.calls[0].payload).toEqual({ priority: 0 });
+
+    const mid = makeUpdateClient();
+    await setSourcePriority("s1", 3.4, mid.client);
+    expect(mid.calls[0].payload).toEqual({ priority: 3 });
+  });
+
+  it("throws on DB error", async () => {
+    const { client } = makeUpdateClient({ errorOn: "sources" });
+    await expect(setSourcePriority("s1", 5, client)).rejects.toThrow(/sources boom/);
+  });
+});
+
+describe("updateSourceMeta", () => {
+  it("writes sanitized name/category/tags and never the url", async () => {
+    const { client, calls } = makeUpdateClient();
+    await updateSourceMeta(
+      "s1",
+      { name: "New name", category: "Products & Tools", tags: ["agents"] },
+      client,
+    );
+    expect(calls[0]).toEqual({
+      table: "sources",
+      payload: { name: "New name", category: "Products & Tools", tags: ["agents"] },
+      id: { id: "s1" },
+    });
+    expect(calls[0].payload).not.toHaveProperty("url");
+  });
+
+  it("throws on DB error", async () => {
+    const { client } = makeUpdateClient({ errorOn: "sources" });
+    await expect(
+      updateSourceMeta("s1", { name: "n", category: "c", tags: [] }, client),
+    ).rejects.toThrow(/sources boom/);
   });
 });

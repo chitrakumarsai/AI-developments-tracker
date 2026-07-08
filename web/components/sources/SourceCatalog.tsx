@@ -1,5 +1,5 @@
 import type { SourceWithCount } from "@/lib/sources/persist";
-import { IngestButton } from "./IngestButton";
+import { SourceRowControls } from "./SourceRowControls";
 
 type SourceCatalogProps = {
   sources: SourceWithCount[];
@@ -66,7 +66,18 @@ export function SourceCatalog({ sources, isOwner }: SourceCatalogProps) {
               <span className="tabular-nums">priority {source.priority}</span>
             </p>
           </div>
-          {isOwner ? <IngestButton sourceId={source.id} /> : null}
+          {isOwner ? (
+            <SourceRowControls
+              source={{
+                id: source.id,
+                name: source.name,
+                category: source.category,
+                tags: source.tags,
+                status: source.status,
+                priority: source.priority,
+              }}
+            />
+          ) : null}
         </li>
       ))}
     </ul>

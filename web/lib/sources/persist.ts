@@ -3,8 +3,12 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { getServerClient } from "../supabase/server";
-import type { IngestionType, SourceRow } from "../supabase/types";
+import type { IngestionType, SourceRow, SourceStatus } from "../supabase/types";
 import { sanitizeText } from "../ingestion/sanitize";
+
+/** Priority is a bounded weight; clamp so a stray API value can't skew ranking. */
+export const MIN_PRIORITY = 0;
+export const MAX_PRIORITY = 100;
 
 /** Catalog metadata for a source added straight from the management UI (2.4.2). */
 export type NewSource = {
@@ -54,11 +58,81 @@ export async function createSource(
 }
 
 /**
+ * Change a source's lifecycle state (2.4.2): `active ↔ paused` (pause keeps the
+ * source but scheduled ingestion skips it) or `archived` (soft-delete; restore =
+ * back to `active`). Owner-gated at the route; injectable client for testing.
+ * Throws on DB error.
+ */
+export async function setSourceStatus(
+  id: string,
+  status: SourceStatus,
+  client: SupabaseClient = getServerClient(),
+): Promise<void> {
+  const { error } = await client.from("sources").update({ status }).eq("id", id);
+  if (error) {
+    throw new Error(`Failed to update source status: ${error.message}`);
+  }
+}
+
+/**
+ * Re-weight a source's ranking `priority`. The value is clamped to
+ * `[MIN_PRIORITY, MAX_PRIORITY]` and rounded so a stray/hostile API number can't
+ * skew the feed. Throws on DB error.
+ */
+export async function setSourcePriority(
+  id: string,
+  priority: number,
+  client: SupabaseClient = getServerClient(),
+): Promise<void> {
+  const clamped = Math.max(MIN_PRIORITY, Math.min(MAX_PRIORITY, Math.round(priority)));
+  const { error } = await client
+    .from("sources")
+    .update({ priority: clamped })
+    .eq("id", id);
+  if (error) {
+    throw new Error(`Failed to update source priority: ${error.message}`);
+  }
+}
+
+/** Editable catalog metadata (2.4.2). `url` is intentionally NOT editable here. */
+export type SourceMeta = {
+  name: string;
+  category: string;
+  tags: string[];
+};
+
+/**
+ * Edit a source's display metadata (`name`, `category`, `tags`). All values are
+ * sanitized (untrusted-input hygiene, §12.7) before the write. The `url` is
+ * deliberately out of scope — changing it would require re-running the SSRF/feed
+ * validation, so it stays immutable in this slice. Throws on DB error.
+ */
+export async function updateSourceMeta(
+  id: string,
+  { name, category, tags }: SourceMeta,
+  client: SupabaseClient = getServerClient(),
+): Promise<void> {
+  const { error } = await client
+    .from("sources")
+    .update({
+      name: sanitizeText(name),
+      category: sanitizeText(category),
+      tags: tags.map((tag) => sanitizeText(tag)),
+    })
+    .eq("id", id);
+  if (error) {
+    throw new Error(`Failed to update source: ${error.message}`);
+  }
+}
+
+/**
  * The full catalog, each row annotated with its ingested-item count, ordered by
- * priority then recency. Item counts are tallied in memory from a single
- * `source_id`-only scan of `items` — one round-trip, no N+1 per-source counts.
- * (At the current catalog size this is cheap; a grouped-count RPC is the scale
- * path if `items` grows large.) Injectable client for testing. Throws on DB error.
+ * priority then recency, with archived sources partitioned to the bottom (they
+ * recede but stay listed so the owner can restore them). Item counts are tallied
+ * in memory from a single `source_id`-only scan of `items` — one round-trip, no
+ * N+1 per-source counts. (At the current catalog size this is cheap; a grouped-
+ * count RPC is the scale path if `items` grows large.) Injectable client for
+ * testing. Throws on DB error.
  */
 export async function listSourcesWithCounts(
   client: SupabaseClient = getServerClient(),
@@ -89,5 +163,13 @@ export async function listSourcesWithCounts(
     counts.set(row.source_id, (counts.get(row.source_id) ?? 0) + 1);
   }
 
-  return sources.map((source) => ({ ...source, itemCount: counts.get(source.id) ?? 0 }));
+  const withCounts = sources.map((source) => ({
+    ...source,
+    itemCount: counts.get(source.id) ?? 0,
+  }));
+
+  // Keep the DB priority/recency order but sink archived sources to the bottom.
+  const live = withCounts.filter((s) => s.status !== "archived");
+  const archived = withCounts.filter((s) => s.status === "archived");
+  return [...live, ...archived];
 }

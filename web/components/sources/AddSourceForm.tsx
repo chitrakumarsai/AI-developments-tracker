@@ -3,22 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-// The content categories a source can feed (CLAUDE.md §3), owner-selectable.
-const CATEGORIES = [
-  "Research Papers",
-  "Companies & Labs",
-  "GitHub Repositories",
-  "LLM & Other Models",
-  "Products & Tools",
-  "Newsletters & Blogs",
-  "Video & Podcasts",
-  "Social / Discussion",
-  "Conferences",
-  "Datasets & Benchmarks",
-  "Funding & Industry",
-] as const;
-
-const INGESTION_TYPES = ["rss", "api", "scrape", "manual"] as const;
+import { SOURCE_CATEGORIES, INGESTION_TYPES } from "@/lib/sources/categories";
 
 /**
  * Owner-only "Add a source" form (2.4.2). Posts to /api/sources, where the feed
@@ -30,7 +15,7 @@ export function AddSourceForm() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
-  const [category, setCategory] = useState<string>(CATEGORIES[0]);
+  const [category, setCategory] = useState<string>(SOURCE_CATEGORIES[0]);
   const [ingestionType, setIngestionType] = useState<string>(INGESTION_TYPES[0]);
   const [tags, setTags] = useState("");
   const [busy, setBusy] = useState(false);
@@ -133,7 +118,7 @@ export function AddSourceForm() {
           onChange={(e) => setCategory(e.target.value)}
           className={`${field} min-w-0 flex-1`}
         >
-          {CATEGORIES.map((c) => (
+          {SOURCE_CATEGORIES.map((c) => (
             <option key={c} value={c}>
               {c}
             </option>
