@@ -17,6 +17,16 @@ describe("buildContentSecurityPolicy", () => {
     expect(scriptSrc).not.toContain("'unsafe-inline'");
   });
 
+  it("allows styles via 'unsafe-inline' without a nonce (WebKit stylesheet fix)", () => {
+    // A nonce in style-src makes browsers ignore 'unsafe-inline' and WebKit then
+    // refuses Next's nonced <link> stylesheet. style-src must stay nonce-free.
+    const csp = buildContentSecurityPolicy(nonce);
+    const styleSrc = csp.split(";").find((d) => d.trim().startsWith("style-src"));
+    expect(styleSrc).toBeDefined();
+    expect(styleSrc).toContain("'unsafe-inline'");
+    expect(styleSrc).not.toContain("nonce-");
+  });
+
   it("adds unsafe-eval only in dev", () => {
     expect(buildContentSecurityPolicy(nonce, { isDev: true })).toContain("'unsafe-eval'");
     expect(buildContentSecurityPolicy(nonce, { isDev: false })).not.toContain("'unsafe-eval'");
@@ -58,7 +68,17 @@ describe("buildContentSecurityPolicy", () => {
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toContain("base-uri 'self'");
     expect(csp).toContain("object-src 'none'");
-    expect(csp).toContain("upgrade-insecure-requests");
+  });
+
+  it("upgrades insecure requests only in production", () => {
+    // In dev the app is served over http://localhost; Safari upgrades those to
+    // https and fails the TLS handshake, so the directive must be prod-only.
+    expect(buildContentSecurityPolicy(nonce, { isDev: false })).toContain(
+      "upgrade-insecure-requests",
+    );
+    expect(buildContentSecurityPolicy(nonce, { isDev: true })).not.toContain(
+      "upgrade-insecure-requests",
+    );
   });
 
   it("ships the expected static header set", () => {

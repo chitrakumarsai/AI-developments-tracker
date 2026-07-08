@@ -55,8 +55,11 @@ export function buildContentSecurityPolicy(
   const directives: Record<string, string[]> = {
     "default-src": ["'self'"],
     "script-src": scriptSrc,
-    // Tailwind/Next inject inline <style>; nonce-ing styles is impractical and
-    // style injection is a low-risk vector, so 'unsafe-inline' is accepted here.
+    // External stylesheets are allowed by 'self'; inline <style> by 'unsafe-inline'.
+    // Do NOT add a nonce here: a nonce in style-src makes browsers IGNORE
+    // 'unsafe-inline', and WebKit then refuses Next's nonced <link> stylesheet
+    // outright — the opposite of what we want. Style injection is a low-risk
+    // vector, so 'unsafe-inline' is accepted for styles (scripts stay nonce-only).
     "style-src": ["'self'", "'unsafe-inline'"],
     "img-src": ["'self'", "data:", "https:"],
     "font-src": ["'self'"],
@@ -73,7 +76,12 @@ export function buildContentSecurityPolicy(
   };
 
   const parts = Object.entries(directives).map(([name, values]) => `${name} ${values.join(" ")}`);
-  // Auto-upgrade any stray http subresource to https.
-  parts.push("upgrade-insecure-requests");
+  // Auto-upgrade any stray http subresource to https — PRODUCTION ONLY. Local dev
+  // serves http://localhost, and while Chrome exempts localhost from the upgrade,
+  // Safari/WebKit does NOT: it rewrites every http://localhost asset to https,
+  // the dev server has no TLS, the handshake fails, and CSS/JS/fonts all 404 —
+  // rendering the whole app unstyled in Safari. Vercel serves prod over HTTPS, so
+  // the upgrade is a no-op cost there but a real safety net against stray http.
+  if (!isDev) parts.push("upgrade-insecure-requests");
   return parts.join("; ");
 }

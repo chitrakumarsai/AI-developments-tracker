@@ -42,13 +42,16 @@ export function TeaserList({ items }: TeaserListProps) {
   }
 
   return (
-    <ul className="divide-y divide-rule" aria-label="Latest headlines preview">
+    <ul
+      className="grid gap-x-10 sm:grid-cols-2"
+      aria-label="Latest headlines preview"
+    >
       {items.map((item, index) => {
         const date = formatDate(item.published_at);
         const sourceName = item.source?.name ?? null;
         const summary = snippet(item.summary);
         return (
-          <li key={item.id} className="flex gap-4 py-5">
+          <li key={item.id} className="flex gap-4 border-t border-rule py-5">
             <span
               aria-hidden="true"
               className="mt-0.5 font-display text-sm tabular-nums text-faint"
