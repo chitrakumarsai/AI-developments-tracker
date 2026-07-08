@@ -40,6 +40,8 @@
 }
 
 .dark {
+  /* When the dark toggle lands, flip native controls to match the dark tokens. */
+  color-scheme: dark;
   --color-paper: oklch(16% 0.01 60);
   --color-surface: oklch(20% 0.012 60);
   --color-ink: oklch(95% 0.005 95);
@@ -66,7 +68,11 @@
 }
 
 html {
-  color-scheme: light dark;
+  /* Light-only today (dark tokens below are dormant, wired for a future .dark
+     toggle). Declaring `light` — not `light dark` — stops browsers from painting
+     native controls, scrollbars, and the root canvas dark on an OS set to dark
+     mode, which was making Safari render a light/dark hybrid unlike Chrome. */
+  color-scheme: light;
 }
 
 body {
