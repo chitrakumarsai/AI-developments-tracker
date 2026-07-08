@@ -1,14 +1,22 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { listSuggested, type SourceCandidate } from "@/lib/candidates/persist";
 import { AddCandidateForm } from "@/components/sources/AddCandidateForm";
 import { ImportListForm } from "@/components/sources/ImportListForm";
 import { CandidateCard } from "@/components/sources/CandidateCard";
+import { requireSession } from "@/lib/auth/gate";
 
 // Reflects live database state; render per-request.
 export const dynamic = "force-dynamic";
 
+// Gated app route (2.4): never index.
+export const metadata: Metadata = { robots: { index: false, follow: false } };
+
 export default async function SourcesPage() {
+  // Gated app route (2.4): source curation is not part of the public surface.
+  await requireSession("/sources");
+
   let candidates: SourceCandidate[] = [];
   let failed = false;
   try {
@@ -25,7 +33,7 @@ export default async function SourcesPage() {
             Sources
           </h1>
           <Link
-            href="/"
+            href="/feed"
             className="text-xs uppercase tracking-[0.18em] text-muted transition-colors hover:text-ink"
           >
             ← Feed

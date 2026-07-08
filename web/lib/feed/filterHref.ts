@@ -26,9 +26,16 @@ export type FeedHrefParams = {
 };
 
 /**
+ * The gated feed app lives at `/feed` (2.4 — `/` is now the public landing).
+ * Every filter link is built from this base so the whole app follows the route
+ * in one place.
+ */
+export const FEED_BASE_PATH = "/feed";
+
+/**
  * Build a feed URL from filter state, omitting defaults so canonical links stay
- * clean (`/` for the unfiltered feed). `URLSearchParams` percent-encodes values,
- * so a tag with spaces or symbols is safe to embed.
+ * clean (`/feed` for the unfiltered feed). `URLSearchParams` percent-encodes
+ * values, so a tag with spaces or symbols is safe to embed.
  */
 export function feedHref(params: FeedHrefParams = {}): string {
   const sp = new URLSearchParams();
@@ -43,5 +50,5 @@ export function feedHref(params: FeedHrefParams = {}): string {
   if (params.state) sp.set("state", params.state);
   if (params.show != null) sp.set("show", String(params.show));
   const qs = sp.toString();
-  return qs ? `/?${qs}` : "/";
+  return qs ? `${FEED_BASE_PATH}?${qs}` : FEED_BASE_PATH;
 }

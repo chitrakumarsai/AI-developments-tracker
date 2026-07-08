@@ -46,10 +46,11 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           href="/"
           className="font-display text-2xl font-semibold tracking-tight text-ink"
         >
-          <span className="text-accent">✦</span> AI Chronicles
+          <span className="text-accent">✦</span> The AI Chronicles
         </Link>
         <p className="mt-2 text-sm text-muted">
-          Sign in to tune your radar — like items, save views, and shape what surfaces.
+          Sign in or create an account to unlock the full radar — the top-rated,
+          personalized feed, filters, likes, and saved views.
         </p>
       </div>
 
@@ -111,7 +112,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
 
       <p className="mt-8 text-center text-xs text-faint">
         <Link href="/" className="transition-colors hover:text-muted">
-          ← Back to the feed
+          ← Back to home
         </Link>
       </p>
     </main>

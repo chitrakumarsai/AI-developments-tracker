@@ -38,20 +38,30 @@ export async function GET(request: Request) {
     );
   }
 
+  // Gated app data (2.4): the feed is not part of the public surface — only the
+  // landing teaser is. Anonymous callers get 401 (the page-level gate redirects;
+  // this closes the JSON endpoint a direct caller would otherwise scrape).
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json(
+      { success: false, data: null, error: "Sign in required." },
+      { status: 401 },
+    );
+  }
+
   try {
     const category = categoryForSlug(parsed.data.section);
     const sort: FeedSort = parsed.data.sort === "stars" ? "metric" : parsed.data.sort;
-    // Personalize to the caller when signed in (2.2); anon reads the shared feed
-    // via the auth-aware client (RLS anon-read), never service-role.
+    // Personalize to the signed-in caller (2.2), via the auth-aware client (RLS
+    // scopes per-user rows to auth.uid()), never service-role.
     const client = await createServerSupabaseClient();
-    const user = await getSessionUser();
     const items = await getFeedItems(
       {
         category,
         sort,
         window: parsed.data.window,
         limit: parsed.data.limit,
-        userId: user?.id ?? null,
+        userId: user.id,
       },
       client,
     );

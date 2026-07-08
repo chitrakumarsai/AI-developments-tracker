@@ -1,430 +1,195 @@
-import { Suspense } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
 
-import { FeedList } from "@/components/feed/FeedList";
-import { DigestCard } from "@/components/feed/DigestCard";
-import { FEED_SECTIONS, sectionForSlug } from "@/lib/feed/categories";
-import {
-  INITIAL_FEED_LIMIT,
-  MAX_FEED_LIMIT,
-  DEFAULT_WINDOW,
-  type FeedSort,
-  type FeedState,
-  type FeedWindow,
-} from "@/lib/feed/queries";
-import { FEED_STATES } from "@/lib/feed/types";
-import { CURATED_PLATFORMS, isCuratedPlatform } from "@/lib/feed/platform";
-import { feedHref } from "@/lib/feed/filterHref";
-import { listViews, type SavedView } from "@/lib/views/persist";
-import type { SavedFilters } from "@/lib/views/href";
-import { SavedViewsBar } from "@/components/feed/SavedViewsBar";
-import { AuthStatus } from "@/components/auth/AuthStatus";
-import { getSessionUser } from "@/lib/auth/session";
+import { TeaserList } from "@/components/landing/TeaserList";
+import { getTeaserItems, TEASER_LIMIT } from "@/lib/seo/teaser";
 import { createServerSupabaseClient } from "@/lib/supabase/ssr";
+import { redirect } from "next/navigation";
+import {
+  siteUrl,
+  SITE_NAME,
+  SITE_TAGLINE,
+  SITE_DESCRIPTION,
+} from "@/lib/seo/site";
+import type { ItemRow } from "@/lib/supabase/types";
 
-/** Sections whose items carry a popularity metric, so a Top-starred sort makes sense. */
-const SORTABLE_SLUGS = new Set(["repos", "models"]);
-
-/** Cap the length of an incoming tag param so a hostile URL can't bloat state. */
-const MAX_TAG_LENGTH = 64;
-
-/** Cap the length of an incoming search param (mirrors the query-side sanitizer). */
-const MAX_SEARCH_LENGTH = 100;
-
-const WINDOW_OPTIONS: ReadonlyArray<{ key: FeedWindow; label: string }> = [
-  { key: "today", label: "Today" },
-  { key: "week", label: "Week" },
-  { key: "month", label: "Month" },
-  { key: "all", label: "All" },
-];
-const WINDOW_KEYS: ReadonlySet<string> = new Set(WINDOW_OPTIONS.map((w) => w.key));
-
-/** Feedback/read-state segmented control. `undefined` key = the default "All". */
-const STATE_OPTIONS: ReadonlyArray<{ key: FeedState | undefined; label: string }> = [
-  { key: undefined, label: "All" },
-  { key: "unread", label: "Unread" },
-  { key: "liked", label: "Liked" },
-  { key: "hide-down", label: "Hide 👎" },
-];
-const STATE_KEYS: ReadonlySet<string> = new Set(FEED_STATES);
-
-// The feed reflects live database state, so render per-request (not at build).
+// The teaser reflects live database state, so render per-request.
 export const dynamic = "force-dynamic";
 
-function FeedFallback() {
-  return (
-    <div className="py-[var(--space-section)] text-center text-sm text-muted">
-      Loading the feed…
-    </div>
-  );
-}
+export const metadata: Metadata = {
+  // The landing is the canonical root.
+  alternates: { canonical: "/" },
+};
 
-export default async function Home({
-  searchParams,
-}: {
-  searchParams: Promise<{
-    section?: string;
-    show?: string;
-    sort?: string;
-    window?: string;
-    source?: string;
-    platform?: string;
-    tag?: string;
-    q?: string;
-    state?: string;
-  }>;
-}) {
+const VALUE_PROPS: ReadonlyArray<{ title: string; body: string }> = [
+  {
+    title: "One radar, every source",
+    body: "Papers, repos, models, company labs, and the social noise — watched for you, in one place.",
+  },
+  {
+    title: "Signal, not scroll",
+    body: "It surfaces the one thing worth reading right now, so you never open a feed just to get lost in it.",
+  },
+  {
+    title: "Read at the source",
+    body: "Every item links straight to the original. The Chronicles is the filter and the index — not another wall to scroll.",
+  },
+];
+
+const CTA_PRIMARY =
+  "inline-flex min-h-[48px] items-center justify-center rounded-[var(--radius-sm)] bg-ink px-6 text-sm font-medium text-surface transition-opacity hover:opacity-90";
+const CTA_SECONDARY =
+  "inline-flex min-h-[48px] items-center justify-center rounded-[var(--radius-sm)] border border-rule px-6 text-sm font-medium text-ink transition-colors hover:border-accent hover:text-accent";
+
+export default async function Landing() {
+  // One request-scoped client, reused for the auth check + teaser fetch.
+  const client = await createServerSupabaseClient();
+
+  // Signed-in visitors don't need the marketing surface — send them to the app.
+  // `getUser()` re-validates the token; `redirect()` throws, so it must stay out
+  // of the teaser try/catch below (a catch-all would swallow the redirect).
   const {
-    section: sectionParam,
-    show: showParam,
-    sort: sortParam,
-    window: windowParam,
-    source: sourceParam,
-    platform: platformParam,
-    tag: tagParam,
-    q: qParam,
-    state: stateParam,
-  } = await searchParams;
-  const active = sectionForSlug(sectionParam);
+    data: { user },
+  } = await client.auth.getUser();
+  if (user) redirect("/feed");
 
-  // Untrusted URL params: keep a non-empty source id; trim + length-cap the tag.
-  const source = sourceParam?.trim() ? sourceParam.trim() : undefined;
-  // Only accept a known curated platform slug (guards against hostile URLs).
-  const platform =
-    platformParam && isCuratedPlatform(platformParam) ? platformParam : undefined;
-  const tag = tagParam?.trim() ? tagParam.trim().slice(0, MAX_TAG_LENGTH) : undefined;
-  const q = qParam?.trim() ? qParam.trim().slice(0, MAX_SEARCH_LENGTH) : undefined;
-  const state: FeedState | undefined = STATE_KEYS.has(stateParam ?? "")
-    ? (stateParam as FeedState)
-    : undefined;
-  const requested = Number.parseInt(showParam ?? "", 10);
-  const limit = Number.isNaN(requested)
-    ? INITIAL_FEED_LIMIT
-    : Math.min(Math.max(requested, INITIAL_FEED_LIMIT), MAX_FEED_LIMIT);
-  const canSort = SORTABLE_SLUGS.has(active.slug);
-
-  // Default order is Relevant (recency + popularity). Newest is a universal
-  // override; Top-starred only where a popularity metric exists.
-  let sort: FeedSort = "relevant";
-  if (sortParam === "recent") sort = "recent";
-  else if (sortParam === "stars" && canSort) sort = "metric";
-
-  const window: FeedWindow = WINDOW_KEYS.has(windowParam ?? "")
-    ? (windowParam as FeedWindow)
-    : DEFAULT_WINDOW;
-
-  const sortOptions: ReadonlyArray<{ key: FeedSort; label: string }> = [
-    { key: "relevant", label: "Relevant" },
-    { key: "recent", label: "Newest" },
-    ...(canSort ? [{ key: "metric" as const, label: "Top-starred" }] : []),
-  ];
-
-  // The search box is a native GET form so it needs no client JS. Carry the
-  // other active filters as hidden inputs (mirroring feedHref's URL tokens) so
-  // searching narrows the *current* view instead of resetting it.
-  const searchHiddenFields: ReadonlyArray<{ name: string; value: string }> = [
-    ...(active.slug !== "all" ? [{ name: "section", value: active.slug }] : []),
-    ...(sort !== "relevant"
-      ? [{ name: "sort", value: sort === "metric" ? "stars" : "recent" }]
-      : []),
-    ...(window !== DEFAULT_WINDOW ? [{ name: "window", value: window }] : []),
-    ...(source ? [{ name: "source", value: source }] : []),
-    ...(platform ? [{ name: "platform", value: platform }] : []),
-    ...(tag ? [{ name: "tag", value: tag }] : []),
-    ...(state ? [{ name: "state", value: state }] : []),
-  ];
-
-  // Saved views: the current (non-default) filter set is offered for saving, and
-  // the stored presets are loaded for the bar. A DB hiccup must not break the
-  // feed, so fall back to an empty list.
-  const currentFilters: SavedFilters = {
-    section: active.slug !== "all" ? active.slug : undefined,
-    sort: sort !== "relevant" ? sort : undefined,
-    window: window !== DEFAULT_WINDOW ? window : undefined,
-    source,
-    platform,
-    tag,
-    q,
-    state,
-  };
-  const hasActiveFilters =
-    Boolean(source || platform || tag || q || state) ||
-    active.slug !== "all" ||
-    sort !== "relevant" ||
-    window !== DEFAULT_WINDOW;
-  // Saved views are per-user (2.2): only the signed-in reader's presets, RLS-scoped.
-  let savedViews: SavedView[] = [];
+  // Anonymous teaser: served via the service-role client (anon can no longer read
+  // items/sources after 2.4's RLS tightening). Never let a DB hiccup break the
+  // (indexable) landing.
+  let teaser: ItemRow[] = [];
   try {
-    const user = await getSessionUser();
-    if (user) {
-      const client = await createServerSupabaseClient();
-      savedViews = await listViews(user.id, client);
-    }
+    teaser = await getTeaserItems();
   } catch {
-    savedViews = [];
+    teaser = [];
   }
 
+  // JSON-LD is built only from trusted brand strings (no ingested content).
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: SITE_NAME,
+    url: siteUrl(),
+    description: SITE_DESCRIPTION,
+    publisher: {
+      "@type": "Organization",
+      name: SITE_NAME,
+      url: siteUrl(),
+    },
+  };
+
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-[var(--space-gutter)] lg:max-w-none lg:px-[clamp(2rem,4vw,4rem)]">
-      <header className="border-b border-rule py-6">
-        <div className="flex items-baseline justify-between">
-          <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">
-            AI Chronicles
-          </h1>
-          <div className="flex items-baseline gap-4 text-xs uppercase tracking-[0.18em]">
-            <span className="hidden text-faint sm:inline">Find the signal in AI</span>
-            <Link href="/sources" className="text-muted transition-colors hover:text-ink">
-              Sources
-            </Link>
-            <Link href="/settings" className="text-muted transition-colors hover:text-ink">
-              Settings
-            </Link>
-            <AuthStatus />
-          </div>
-        </div>
-        <nav aria-label="Categories" className="mt-4 -mx-1 overflow-x-auto">
-          <ul className="flex gap-1">
-            {FEED_SECTIONS.map((section) => {
-              const isActive = section.slug === active.slug;
-              return (
-                <li key={section.slug}>
-                  <Link
-                    href={feedHref({
-                      section: section.slug,
-                      sort: "relevant",
-                      window,
-                      source,
-                      platform,
-                      tag,
-                      q,
-                      state,
-                    })}
-                    aria-current={isActive ? "page" : undefined}
-                    className={`inline-block rounded-[var(--radius-sm)] px-3 py-1.5 text-sm transition-colors ${
-                      isActive
-                        ? "bg-ink text-surface"
-                        : "text-muted hover:text-ink hover:bg-rule/40"
-                    }`}
-                  >
-                    {section.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-        <nav aria-label="Platform" className="mt-2 -mx-1 overflow-x-auto">
-          <ul className="flex items-center gap-1 text-xs">
-            <li className="pl-1 pr-1 text-faint">Platform</li>
-            <li>
-              <Link
-                href={feedHref({
-                  section: active.slug,
-                  sort,
-                  window,
-                  source,
-                  platform: null,
-                  tag,
-                  q,
-                  state,
-                })}
-                aria-current={!platform ? "true" : undefined}
-                className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] px-2.5 font-medium transition-colors ${
-                  !platform
-                    ? "bg-ink text-surface"
-                    : "text-muted hover:text-ink hover:bg-rule/40"
-                }`}
-              >
-                All
-              </Link>
-            </li>
-            {CURATED_PLATFORMS.map((p) => {
-              const isActive = platform === p.slug;
-              return (
-                <li key={p.slug}>
-                  <Link
-                    href={feedHref({
-                      section: active.slug,
-                      sort,
-                      window,
-                      source,
-                      platform: p.slug,
-                      tag,
-                      q,
-                      state,
-                    })}
-                    aria-current={isActive ? "true" : undefined}
-                    className={`inline-flex min-h-[36px] items-center whitespace-nowrap rounded-[var(--radius-sm)] px-2.5 font-medium transition-colors ${
-                      isActive
-                        ? "bg-ink text-surface"
-                        : "text-muted hover:text-ink hover:bg-rule/40"
-                    }`}
-                  >
-                    {p.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-[var(--space-gutter)]">
+      <script
+        type="application/ld+json"
+        nonce={nonce}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+
+      <header className="flex items-center justify-between border-b border-rule py-6">
+        <p className="font-display text-lg font-semibold tracking-tight text-ink">
+          <span className="text-accent">✦</span> {SITE_NAME}
+        </p>
+        <Link
+          href="/sign-in"
+          className="text-xs uppercase tracking-[0.18em] text-muted transition-colors hover:text-ink"
+        >
+          Sign in
+        </Link>
       </header>
 
       <main className="flex flex-1 flex-col">
-        {window === "week" || window === "month" ? (
-          <Suspense fallback={null}>
-            <DigestCard period={window} />
-          </Suspense>
-        ) : null}
-        <section aria-label="Feed" className="flex flex-1 flex-col">
-          <form
-            method="get"
-            action="/"
-            role="search"
-            className="flex items-center gap-2 pt-4"
+        <section
+          aria-labelledby="hero-heading"
+          className="py-[clamp(3rem,6vw,6rem)]"
+        >
+          <p className="text-xs uppercase tracking-[0.24em] text-accent">
+            {SITE_TAGLINE}
+          </p>
+          <h1
+            id="hero-heading"
+            className="mt-4 font-display text-[clamp(2.5rem,6vw,4.5rem)] font-semibold leading-[1.02] tracking-tight text-ink"
           >
-            {searchHiddenFields.map((field) => (
-              <input
-                key={field.name}
-                type="hidden"
-                name={field.name}
-                value={field.value}
-              />
-            ))}
-            <input
-              type="search"
-              name="q"
-              defaultValue={q ?? ""}
-              placeholder="Search titles & summaries…"
-              aria-label="Search the feed"
-              maxLength={MAX_SEARCH_LENGTH}
-              className="min-h-[44px] w-full flex-1 rounded-[var(--radius-sm)] border border-rule bg-transparent px-3 text-sm text-ink placeholder:text-faint focus:border-accent"
-            />
-            <button
-              type="submit"
-              className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] bg-ink px-4 text-sm font-medium text-surface transition-colors hover:bg-accent"
-            >
-              Search
-            </button>
-          </form>
-          <SavedViewsBar
-            views={savedViews}
-            current={currentFilters}
-            hasActiveFilters={hasActiveFilters}
-          />
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-4 text-xs">
-            <div className="flex items-center gap-1" aria-label="Time window">
-              <span className="mr-1 text-faint">Window</span>
-              {WINDOW_OPTIONS.map((option) => {
-                const isActive = window === option.key;
-                return (
-                  <Link
-                    key={option.key}
-                    href={feedHref({
-                      section: active.slug,
-                      sort,
-                      window: option.key,
-                      source,
-                      platform,
-                      tag,
-                      q,
-                      state,
-                    })}
-                    aria-current={isActive ? "true" : undefined}
-                    className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] px-2.5 font-medium transition-colors ${
-                      isActive
-                        ? "bg-ink text-surface"
-                        : "text-muted hover:text-ink hover:bg-rule/40"
-                    }`}
-                  >
-                    {option.label}
-                  </Link>
-                );
-              })}
+            The one thing in AI worth reading right now.
+          </h1>
+          <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
+            {SITE_NAME} watches papers, repositories, models, and the feeds so you
+            don&rsquo;t have to — then points you straight to what matters.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <Link href="/sign-in" className={CTA_PRIMARY}>
+              Get started — it&rsquo;s free
+            </Link>
+            <Link href="/sign-in" className={CTA_SECONDARY}>
+              Sign in
+            </Link>
+          </div>
+          <p className="mt-4 text-sm text-faint">
+            Sign in or create an account to unlock the top-rated, personalized feed.
+          </p>
+        </section>
+
+        <section
+          aria-label="What it does"
+          className="grid gap-8 border-t border-rule py-[clamp(2.5rem,5vw,4rem)] sm:grid-cols-3"
+        >
+          {VALUE_PROPS.map((prop) => (
+            <div key={prop.title}>
+              <h2 className="font-display text-lg font-medium text-ink">
+                {prop.title}
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted">{prop.body}</p>
             </div>
-            <div className="flex items-center gap-1" aria-label="Sort order">
-              <span className="mr-1 text-faint">Sort</span>
-              {sortOptions.map((option) => {
-                const isActive = sort === option.key;
-                return (
-                  <Link
-                    key={option.key}
-                    href={feedHref({
-                      section: active.slug,
-                      sort: option.key,
-                      window,
-                      source,
-                      platform,
-                      tag,
-                      q,
-                      state,
-                    })}
-                    aria-current={isActive ? "true" : undefined}
-                    className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] px-2.5 font-medium transition-colors ${
-                      isActive
-                        ? "bg-ink text-surface"
-                        : "text-muted hover:text-ink hover:bg-rule/40"
-                    }`}
-                  >
-                    {option.label}
-                  </Link>
-                );
-              })}
+          ))}
+        </section>
+
+        <section
+          aria-labelledby="teaser-heading"
+          className="border-t border-rule py-[clamp(2.5rem,5vw,4rem)]"
+        >
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2
+              id="teaser-heading"
+              className="font-display text-xl font-semibold text-ink"
+            >
+              A glimpse of the signal
+            </h2>
+            <p className="text-xs uppercase tracking-[0.14em] text-faint">
+              Latest {TEASER_LIMIT} · preview
+            </p>
+          </div>
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
+            A small taste of what&rsquo;s surfacing. Sign in to unlock the full,
+            top-rated feed — filter it, rate it, and shape what it shows you.
+          </p>
+
+          <div className="mt-6">
+            <TeaserList items={teaser} />
+          </div>
+
+          <div className="mt-8 rounded-[var(--radius-md)] border border-rule bg-surface/40 p-6 text-center">
+            <p className="font-display text-lg text-ink">
+              Want the top-rated, personalized feed?
+            </p>
+            <p className="mx-auto mt-1 max-w-md text-sm text-muted">
+              Sign up free to unlock every source, filters, likes, and saved views —
+              tuned to what you care about.
+            </p>
+            <div className="mt-5 flex flex-wrap justify-center gap-3">
+              <Link href="/sign-in" className={CTA_PRIMARY}>
+                Create free account
+              </Link>
+              <Link href="/sign-in" className={CTA_SECONDARY}>
+                Sign in
+              </Link>
             </div>
           </div>
-          <nav aria-label="Feedback filter" className="mt-3 -mx-1 overflow-x-auto">
-            <ul className="flex gap-1 text-xs">
-              {STATE_OPTIONS.map((option) => {
-                const isActive = state === option.key;
-                return (
-                  <li key={option.label}>
-                    <Link
-                      href={feedHref({
-                        section: active.slug,
-                        sort,
-                        window,
-                        source,
-                        platform,
-                        tag,
-                        q,
-                        state: option.key ?? null,
-                      })}
-                      aria-current={isActive ? "true" : undefined}
-                      className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] px-2.5 font-medium transition-colors ${
-                        isActive
-                          ? "bg-ink text-surface"
-                          : "text-muted hover:text-ink hover:bg-rule/40"
-                      }`}
-                    >
-                      {option.label}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
-          <Suspense
-            key={`${active.slug}:${limit}:${sort}:${window}:${source ?? ""}:${platform ?? ""}:${tag ?? ""}:${q ?? ""}:${state ?? ""}`}
-            fallback={<FeedFallback />}
-          >
-            <FeedList
-              category={active.category}
-              source={source}
-              platform={platform}
-              tag={tag}
-              q={q}
-              state={state}
-              sectionLabel={active.label}
-              sectionSlug={active.slug}
-              limit={limit}
-              sort={sort}
-              window={window}
-            />
-          </Suspense>
         </section>
       </main>
 
       <footer className="border-t border-rule py-5 text-xs text-faint">
-        AI Chronicles · Phase 1 · single-user development build
+        {SITE_NAME} · {SITE_TAGLINE}
       </footer>
     </div>
   );
