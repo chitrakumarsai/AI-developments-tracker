@@ -40,7 +40,7 @@ export default async function SourcesPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-[var(--space-gutter)]">
+    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-[var(--space-gutter)] lg:max-w-none lg:px-[clamp(2rem,4vw,4rem)]">
       <header className="border-b border-rule py-6">
         <div className="flex items-baseline justify-between">
           <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">

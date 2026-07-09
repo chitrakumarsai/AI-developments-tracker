@@ -1,4 +1,7 @@
+import Link from "next/link";
+
 import type { SourceWithCount } from "@/lib/sources/persist";
+import { feedHref } from "@/lib/feed/filterHref";
 import { SourceRowControls } from "./SourceRowControls";
 
 type SourceCatalogProps = {
@@ -49,7 +52,15 @@ export function SourceCatalog({ sources, isOwner }: SourceCatalogProps) {
         >
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="font-display text-base font-medium text-ink">{source.name}</h3>
+              <h3 className="font-display text-base font-medium text-ink">
+                <Link
+                  href={feedHref({ source: source.id, window: "all" })}
+                  className="transition-colors hover:text-accent"
+                  aria-label={`View ${source.name} items in the feed`}
+                >
+                  {source.name}
+                </Link>
+              </h3>
               <span
                 className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] ${statusTone(source.status)}`}
               >
