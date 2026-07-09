@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { listSuggested, type SourceCandidate } from "@/lib/candidates/persist";
+import { listSourcesWithCounts, type SourceWithCount } from "@/lib/sources/persist";
 import { AddCandidateForm } from "@/components/sources/AddCandidateForm";
 import { ImportListForm } from "@/components/sources/ImportListForm";
 import { CandidateCard } from "@/components/sources/CandidateCard";
+import { AddSourceForm } from "@/components/sources/AddSourceForm";
+import { SourceCatalog } from "@/components/sources/SourceCatalog";
 import { requireSession } from "@/lib/auth/gate";
 
 // Reflects live database state; render per-request.
@@ -15,14 +18,24 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function SourcesPage() {
   // Gated app route (2.4): source curation is not part of the public surface.
-  await requireSession("/sources");
+  // The owner additionally gets management controls (add + ingest, 2.4.2).
+  const user = await requireSession("/sources");
+  const isOwner = user.role === "owner";
+
+  let sources: SourceWithCount[] = [];
+  let catalogFailed = false;
+  try {
+    sources = await listSourcesWithCounts();
+  } catch {
+    catalogFailed = true;
+  }
 
   let candidates: SourceCandidate[] = [];
-  let failed = false;
+  let queueFailed = false;
   try {
     candidates = await listSuggested();
   } catch {
-    failed = true;
+    queueFailed = true;
   }
 
   return (
@@ -40,47 +53,61 @@ export default async function SourcesPage() {
           </Link>
         </div>
         <p className="mt-2 text-sm text-muted">
-          Propose a source, rate the queue, and promote the good ones. Only promoted
-          sources feed the site — a feed is validated before it goes live.
+          {isOwner
+            ? "The live catalog feeds the site. Add sources, ingest on demand, and vet new candidates through the rating queue."
+            : "The live catalog feeds the site. Propose a source and rate the queue — the owner promotes the good ones."}
         </p>
       </header>
 
-      <main className="flex flex-1 flex-col gap-6 py-6">
-        <section aria-label="Add a source" className="flex flex-col gap-3">
-          <div className="flex flex-col gap-2">
-            <h2 className="text-xs uppercase tracking-[0.18em] text-faint">Add one</h2>
-            <AddCandidateForm />
-          </div>
-          <div className="flex flex-col gap-2">
-            <h2 className="text-xs uppercase tracking-[0.18em] text-faint">Paste a list</h2>
-            <ImportListForm />
-          </div>
-        </section>
-
-        <section aria-label="Rating queue" className="flex flex-1 flex-col">
-          <h2 className="text-xs uppercase tracking-[0.18em] text-faint">
-            Rating queue
-          </h2>
-          {failed ? (
+      <main className="flex flex-1 flex-col gap-8 py-6">
+        <section aria-label="Live catalog" className="flex flex-col gap-3">
+          <h2 className="text-xs uppercase tracking-[0.18em] text-faint">Live catalog</h2>
+          {isOwner ? <AddSourceForm /> : null}
+          {catalogFailed ? (
             <p className="py-[var(--space-section)] text-center text-sm text-muted">
               Could not reach the database. Make sure Supabase is configured.
             </p>
-          ) : candidates.length === 0 ? (
-            <p className="py-[var(--space-section)] text-center text-sm text-muted">
-              The queue is empty. Add a candidate above to get started.
-            </p>
           ) : (
-            <ul className="mt-2 flex flex-col">
-              {candidates.map((candidate) => (
-                <CandidateCard key={candidate.id} candidate={candidate} />
-              ))}
-            </ul>
+            <SourceCatalog sources={sources} isOwner={isOwner} />
           )}
+        </section>
+
+        <section aria-label="Source discovery" className="flex flex-col gap-3">
+          <h2 className="text-xs uppercase tracking-[0.18em] text-faint">
+            Propose &amp; rate
+          </h2>
+          <div className="flex flex-col gap-2">
+            <p className="text-xs uppercase tracking-[0.14em] text-faint">Add one</p>
+            <AddCandidateForm />
+          </div>
+          <div className="flex flex-col gap-2">
+            <p className="text-xs uppercase tracking-[0.14em] text-faint">Paste a list</p>
+            <ImportListForm />
+          </div>
+
+          <div className="mt-2 flex flex-col">
+            <h3 className="text-xs uppercase tracking-[0.18em] text-faint">Rating queue</h3>
+            {queueFailed ? (
+              <p className="py-[var(--space-section)] text-center text-sm text-muted">
+                Could not load the rating queue.
+              </p>
+            ) : candidates.length === 0 ? (
+              <p className="py-[var(--space-section)] text-center text-sm text-muted">
+                The queue is empty. Add a candidate above to get started.
+              </p>
+            ) : (
+              <ul className="mt-2 flex flex-col">
+                {candidates.map((candidate) => (
+                  <CandidateCard key={candidate.id} candidate={candidate} />
+                ))}
+              </ul>
+            )}
+          </div>
         </section>
       </main>
 
       <footer className="border-t border-rule py-5 text-xs text-faint">
-        AI Chronicles · Source onboarding · Phase 1
+        AI Chronicles · Source management · Phase 2.4
       </footer>
     </div>
   );
