@@ -20,6 +20,7 @@ import { listViews, type SavedView } from "@/lib/views/persist";
 import type { SavedFilters } from "@/lib/views/href";
 import { SavedViewsBar } from "@/components/feed/SavedViewsBar";
 import { SourcePicker } from "@/components/feed/SourcePicker";
+import { MyViews } from "@/components/feed/MyViews";
 import { WelcomeBanner } from "@/components/feed/WelcomeBanner";
 import { listSourceOptions, type SourceOption } from "@/lib/sources/persist";
 import { AuthStatus } from "@/components/auth/AuthStatus";
@@ -82,6 +83,7 @@ export default async function Home({
     tag?: string;
     q?: string;
     state?: string;
+    view?: string;
   }>;
 }) {
   // The feed is the gated app (2.4): anonymous visitors are sent to sign-in
@@ -98,8 +100,13 @@ export default async function Home({
     tag: tagParam,
     q: qParam,
     state: stateParam,
+    view: viewParam,
   } = await searchParams;
   const active = sectionForSlug(sectionParam);
+  // "My views" is a sub-view of the Products tab (v4 Slice B): the saved
+  // prompt-views surface, toggled alongside the normal content feed.
+  const isProductsTab = active.slug === "products";
+  const isMyViews = isProductsTab && viewParam === "mine";
 
   // Untrusted URL params: keep a non-empty source id; trim + length-cap the tag.
   const source = sourceParam?.trim() ? sourceParam.trim() : undefined;
@@ -313,6 +320,41 @@ export default async function Home({
           </Suspense>
         ) : null}
         <section aria-label="Feed" className="flex flex-1 flex-col">
+          {isProductsTab ? (
+            <nav aria-label="Products view" className="mt-4 -mx-1 overflow-x-auto">
+              <ul className="flex gap-1 text-sm">
+                {[
+                  { key: "news", label: "In the news", href: feedHref({ section: "products" }) },
+                  {
+                    key: "mine",
+                    label: "My views",
+                    href: `${feedHref({ section: "products" })}&view=mine`,
+                  },
+                ].map((tab) => {
+                  const tabActive = tab.key === "mine" ? isMyViews : !isMyViews;
+                  return (
+                    <li key={tab.key}>
+                      <Link
+                        href={tab.href}
+                        aria-current={tabActive ? "true" : undefined}
+                        className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] px-3 font-medium transition-colors ${
+                          tabActive
+                            ? "bg-ink text-surface"
+                            : "text-muted hover:text-ink hover:bg-rule/40"
+                        }`}
+                      >
+                        {tab.label}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+          ) : null}
+          {isMyViews ? (
+            <MyViews />
+          ) : (
+            <>
           <form
             method="get"
             action="/feed"
@@ -465,6 +507,8 @@ export default async function Home({
               window={window}
             />
           </Suspense>
+            </>
+          )}
         </section>
       </main>
 
