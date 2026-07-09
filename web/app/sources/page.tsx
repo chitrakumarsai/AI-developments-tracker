@@ -8,6 +8,7 @@ import { ImportListForm } from "@/components/sources/ImportListForm";
 import { CandidateCard } from "@/components/sources/CandidateCard";
 import { AddSourceForm } from "@/components/sources/AddSourceForm";
 import { SourceCatalog } from "@/components/sources/SourceCatalog";
+import { RunDiscoveryButton } from "@/components/sources/RunDiscoveryButton";
 import { requireSession } from "@/lib/auth/gate";
 
 // Reflects live database state; render per-request.
@@ -76,6 +77,15 @@ export default async function SourcesPage() {
           <h2 className="text-xs uppercase tracking-[0.18em] text-faint">
             Propose &amp; rate
           </h2>
+          {isOwner ? (
+            <div className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-rule p-4">
+              <p className="text-sm text-muted">
+                Discover new candidates automatically — scans what your active
+                sources link out to and proposes the outlets they keep referencing.
+              </p>
+              <RunDiscoveryButton />
+            </div>
+          ) : null}
           <div className="flex flex-col gap-2">
             <p className="text-xs uppercase tracking-[0.14em] text-faint">Add one</p>
             <AddCandidateForm />

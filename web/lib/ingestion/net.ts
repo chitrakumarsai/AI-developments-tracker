@@ -40,3 +40,21 @@ export function unsafeUrlReason(url: string): string | null {
   }
   return null;
 }
+
+/**
+ * True when a *resolved* IP address falls in a private/loopback/link-local
+ * range. `unsafeUrlReason` only inspects the hostname string; this checks the
+ * address a hostname actually resolves to, so a caller that resolves DNS first
+ * can defend against DNS-rebinding (a public-looking host pointing at
+ * 127.x/10.x/169.254.x metadata). The IP-shaped `PRIVATE_HOST` patterns cover
+ * IPv4 + `::1`; the extra checks cover common IPv6 private/mapped forms.
+ */
+export function ipIsPrivate(ip: string): boolean {
+  if (PRIVATE_HOST.some((pattern) => pattern.test(ip))) return true;
+  const v6 = ip.toLowerCase();
+  // Unique-local (fc00::/7), link-local (fe80::/10), and IPv4-mapped loopback.
+  if (/^f[cd][0-9a-f]{2}:/.test(v6)) return true;
+  if (/^fe[89ab][0-9a-f]:/.test(v6)) return true;
+  if (v6.startsWith("::ffff:")) return PRIVATE_HOST.some((p) => p.test(v6.slice(7)));
+  return false;
+}
