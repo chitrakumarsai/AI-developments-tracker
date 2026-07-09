@@ -7,6 +7,7 @@ import { feedHref, type FeedHrefParams } from "@/lib/feed/filterHref";
 import { Abstract } from "./Abstract";
 import { FeedbackControls } from "./FeedbackControls";
 import { OpenAtSourceLink } from "./OpenAtSourceLink";
+import { ShareButton } from "./ShareButton";
 
 /** Cap tag chips per card so a heavily-tagged item doesn't crowd the layout. */
 const MAX_TAG_CHIPS = 4;
@@ -131,6 +132,11 @@ export function ItemCard({ item, context = {} }: ItemCardProps) {
         </span>
         <div className="flex shrink-0 items-center gap-2">
           <FeedbackControls itemId={item.id} initialValue={item.feedback_value} />
+          <ShareButton
+            url={item.url}
+            title={item.title}
+            className="inline-flex min-h-[44px] items-center font-medium text-muted transition-colors hover:text-accent"
+          />
           <OpenAtSourceLink
             itemId={item.id}
             url={item.url}

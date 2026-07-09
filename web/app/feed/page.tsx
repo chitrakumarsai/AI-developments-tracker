@@ -19,6 +19,7 @@ import { feedHref } from "@/lib/feed/filterHref";
 import { listViews, type SavedView } from "@/lib/views/persist";
 import type { SavedFilters } from "@/lib/views/href";
 import { SavedViewsBar } from "@/components/feed/SavedViewsBar";
+import { WelcomeBanner } from "@/components/feed/WelcomeBanner";
 import { AuthStatus } from "@/components/auth/AuthStatus";
 import { getSessionUser } from "@/lib/auth/session";
 import { requireSession } from "@/lib/auth/gate";
@@ -281,6 +282,7 @@ export default async function Home({
       </header>
 
       <main className="flex flex-1 flex-col">
+        <WelcomeBanner />
         {window === "week" || window === "month" ? (
           <Suspense fallback={null}>
             <DigestCard period={window} />
