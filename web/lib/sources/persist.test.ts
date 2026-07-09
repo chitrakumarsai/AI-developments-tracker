@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
   createSource,
+  listSourceOptions,
   listSourcesWithCounts,
   setSourceStatus,
   setSourcePriority,
@@ -270,5 +271,52 @@ describe("updateSourceMeta", () => {
     await expect(
       updateSourceMeta("s1", { name: "n", category: "c", tags: [] }, client),
     ).rejects.toThrow(/sources boom/);
+  });
+});
+
+/** Fake client for listSourceOptions: `sources` select→eq→order chain. */
+function makeOptionsClient(rows: Array<{ id: string; name: string | null; status: string }>) {
+  return {
+    from() {
+      return {
+        select() {
+          return this;
+        },
+        eq(_col: string, val: string) {
+          rows = rows.filter((r) => r.status === val);
+          return this;
+        },
+        order(col: string) {
+          const sorted = [...rows].sort((a, b) =>
+            String(a[col as "name"]).localeCompare(String(b[col as "name"])),
+          );
+          return Promise.resolve({ data: sorted, error: null });
+        },
+      };
+    },
+  } as unknown as SupabaseClient;
+}
+
+describe("listSourceOptions", () => {
+  it("returns active sources as {id,name}, alphabetized", async () => {
+    const client = makeOptionsClient([
+      { id: "2", name: "Zeta", status: "active" },
+      { id: "1", name: "Alpha", status: "active" },
+    ]);
+    const result = await listSourceOptions(client);
+    expect(result).toEqual([
+      { id: "1", name: "Alpha" },
+      { id: "2", name: "Zeta" },
+    ]);
+  });
+
+  it("excludes paused/archived sources and nameless rows", async () => {
+    const client = makeOptionsClient([
+      { id: "1", name: "Alpha", status: "active" },
+      { id: "2", name: "Paused", status: "paused" },
+      { id: "3", name: null, status: "active" },
+    ]);
+    const result = await listSourceOptions(client);
+    expect(result).toEqual([{ id: "1", name: "Alpha" }]);
   });
 });

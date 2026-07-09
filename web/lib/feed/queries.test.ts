@@ -47,6 +47,11 @@ function makeClient(rows: ItemRow[]): SupabaseClient {
       data = data.filter((r) => (r as unknown as Record<string, unknown>)[col] === val);
       return builder;
     },
+    in(col: string, vals: string[]) {
+      const set = new Set(vals);
+      data = data.filter((r) => set.has((r as unknown as Record<string, unknown>)[col] as string));
+      return builder;
+    },
     gte(col: string, val: string) {
       data = data.filter((r) => {
         const v = (r as unknown as Record<string, unknown>)[col];
@@ -135,6 +140,21 @@ describe("getFeedItems filtering", () => {
     const result = await getFeedItems({ ...RECENT, source: "reddit" }, client);
 
     expect(result.map((r) => r.id)).toEqual(["a"]);
+  });
+
+  it("restricts to a set of categories when `categories` is given (More tab)", async () => {
+    const client = makeClient([
+      item({ id: "a", category: "Newsletters & Blogs" }),
+      item({ id: "b", category: "Funding & Industry" }),
+      item({ id: "c", category: "Research Papers" }),
+    ]);
+
+    const result = await getFeedItems(
+      { ...RECENT, categories: ["Newsletters & Blogs", "Funding & Industry"] },
+      client,
+    );
+
+    expect(result.map((r) => r.id).sort()).toEqual(["a", "b"]);
   });
 
   it("restricts to items carrying a tag when `tag` is given", async () => {

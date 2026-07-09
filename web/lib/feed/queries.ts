@@ -71,6 +71,11 @@ export function sanitizeSearch(raw: string): string {
 export type FeedQuery = {
   /** DB category to filter to; null/undefined = all categories. */
   category?: string | null;
+  /**
+   * Filter to ANY of these categories (the More catch-all tab). Takes
+   * precedence over `category`; empty/undefined = no multi-category filter.
+   */
+  categories?: readonly string[] | null;
   /** Restrict to one source (`items.source_id`); null/undefined = all sources. */
   source?: string | null;
   /** Restrict to one derived platform slug (e.g. "github"); null/undefined = all. */
@@ -207,6 +212,7 @@ export async function resolvePlatformSourceIds(
 export async function getFeedItems(
   {
     category,
+    categories = null,
     source,
     platform = null,
     tag,
@@ -247,7 +253,11 @@ export async function getFeedItems(
 
   // Embed the source name so the card can label the item's platform accurately.
   let query = client.from("items").select("*, source:sources(name)");
-  if (category) {
+  // The More tab filters to a SET of categories; a single-category tab uses one.
+  // `categories` wins when present so the More tab can't be narrowed to one.
+  if (categories && categories.length > 0) {
+    query = query.in("category", categories as string[]);
+  } else if (category) {
     query = query.eq("category", category);
   }
   if (source) {

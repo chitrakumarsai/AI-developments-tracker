@@ -125,6 +125,32 @@ export async function updateSourceMeta(
   }
 }
 
+/** A lightweight `{ id, name }` option for the feed's source-picker dropdown. */
+export type SourceOption = { id: string; name: string };
+
+/**
+ * Active sources as `{ id, name }`, alphabetized — the options for the feed's
+ * source-picker dropdown (v4 findability). Only `active` sources: paused and
+ * archived ones aren't feeding the feed, so filtering to them would show an
+ * empty list. Injectable client for testing. Throws on DB error.
+ */
+export async function listSourceOptions(
+  client: SupabaseClient = getServerClient(),
+): Promise<SourceOption[]> {
+  const { data, error } = await client
+    .from("sources")
+    .select("id, name")
+    .eq("status", "active")
+    .order("name", { ascending: true });
+
+  if (error) {
+    throw new Error(`Failed to load source options: ${error.message}`);
+  }
+  return ((data ?? []) as Array<{ id: string; name: string | null }>)
+    .filter((s): s is SourceOption => Boolean(s.name))
+    .map((s) => ({ id: s.id, name: s.name as string }));
+}
+
 /**
  * The full catalog, each row annotated with its ingested-item count, ordered by
  * priority then recency, with archived sources partitioned to the bottom (they

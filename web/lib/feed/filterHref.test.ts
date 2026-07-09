@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { feedHref, type FeedHrefParams } from "./filterHref";
+import { feedHref, sourceFilterHref, type FeedHrefParams } from "./filterHref";
 
 describe("feedHref", () => {
   it("returns bare / for empty/default state", () => {
@@ -76,5 +76,23 @@ describe("feedHref", () => {
     expect(feedHref({ ...context, tag: null, show: null })).toBe(
       "/feed?section=repos&window=week&source=src-1",
     );
+  });
+});
+
+describe("sourceFilterHref", () => {
+  it("scopes to the picked source at the all-time window, preserving section", () => {
+    const current: FeedHrefParams = { section: "social", window: "month", show: 40 };
+    expect(sourceFilterHref(current, "src-9")).toBe(
+      "/feed?section=social&window=all&source=src-9",
+    );
+  });
+
+  it("clears the source and restores the current window when id is empty", () => {
+    const current: FeedHrefParams = { section: "social", window: "week", source: "old" };
+    expect(sourceFilterHref(current, "")).toBe("/feed?section=social&window=week");
+  });
+
+  it("trims whitespace-only ids to a clear", () => {
+    expect(sourceFilterHref({ window: "today" }, "   ")).toBe("/feed?window=today");
   });
 });

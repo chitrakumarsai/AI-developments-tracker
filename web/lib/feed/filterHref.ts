@@ -52,3 +52,24 @@ export function feedHref(params: FeedHrefParams = {}): string {
   const qs = sp.toString();
   return qs ? `${FEED_BASE_PATH}?${qs}` : FEED_BASE_PATH;
 }
+
+/**
+ * The feed URL for the source-picker dropdown (v4 findability). Selecting a
+ * source narrows the current view to it and forces the all-time window, so a
+ * freshly-ingested source's older items surface instead of being clipped by the
+ * default 30-day window. An empty id clears the source filter and restores the
+ * view's current window. Every other active filter is preserved.
+ */
+export function sourceFilterHref(
+  current: FeedHrefParams,
+  sourceId: string,
+): string {
+  const id = sourceId.trim();
+  return feedHref({
+    ...current,
+    source: id || null,
+    window: id ? "all" : current.window,
+    // Reset paging: a re-scoped feed should start from the first page.
+    show: null,
+  });
+}
