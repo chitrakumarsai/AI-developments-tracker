@@ -7,6 +7,7 @@ import { getServerClient } from "../supabase/server";
 import { addCandidates, type NewCandidate } from "../candidates/persist";
 import { unsafeUrlReason, ipIsPrivate, USER_AGENT, FETCH_TIMEOUT_MS } from "../ingestion/net";
 import { extractOutboundHosts, normalizeHost } from "./extract";
+import { getSafeDispatcher } from "./safe-agent";
 
 /** Outcome of one discovery run, surfaced to the owner. */
 export type DiscoverySummary = {
@@ -188,6 +189,25 @@ function selectItems(
 }
 
 /**
+ * Real fetch for discovery: routes every request through `safeDispatcher`, whose
+ * connection lookup rejects private-resolving hosts at connect time (closes
+ * DNS-rebinding TOCTOU). Uses `redirect: "follow"` so undici follows redirects —
+ * each hop still goes through the same validating dispatcher. Tests inject their
+ * own `fetchImpl` and never hit this.
+ */
+const defaultDiscoveryFetch: DiscoveryFetch = async (url, init) => {
+  const dispatcher = await getSafeDispatcher();
+  return fetch(url, {
+    signal: init.signal,
+    headers: init.headers,
+    redirect: "follow",
+    dispatcher,
+  } as RequestInit & { dispatcher: unknown }) as unknown as Awaited<
+    ReturnType<DiscoveryFetch>
+  >;
+};
+
+/**
  * Automated source discovery (2.4.3): scan recent items from the ACTIVE catalog,
  * tally which external hosts are referenced across ≥MIN_SOURCE_SPREAD distinct
  * sources, and propose the top untracked ones as `suggested` candidates through
@@ -197,7 +217,7 @@ function selectItems(
  */
 export async function runDiscovery(deps: DiscoveryDeps = {}): Promise<DiscoverySummary> {
   const client = deps.client ?? getServerClient();
-  const fetchImpl = deps.fetchImpl ?? (fetch as unknown as DiscoveryFetch);
+  const fetchImpl = deps.fetchImpl ?? defaultDiscoveryFetch;
   const addCandidatesImpl = deps.addCandidatesImpl ?? addCandidates;
   const resolveGuard = deps.resolveGuard ?? realResolveGuard;
   const warnings: string[] = [];
