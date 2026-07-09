@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { createProduct, deleteProduct, listProducts } from "./persist";
+import {
+  createProduct,
+  deleteProduct,
+  getProductWithItems,
+  listProducts,
+  replaceSnapshot,
+} from "./persist";
 
 /** Fake client for createProduct: records the insert, serves `.select().single()`. */
 function makeInsertClient(opts?: { errorOn?: "products"; id?: string }) {
@@ -169,5 +175,139 @@ describe("deleteProduct", () => {
   it("throws on DB error", async () => {
     const { client } = makeDeleteClient({ errorOn: "products" });
     await expect(deleteProduct("p1", "user-1", client)).rejects.toThrow(/del boom/);
+  });
+});
+
+/** Client capturing product_items delete+insert for replaceSnapshot. */
+function makeSnapshotClient(opts?: { delError?: boolean; insError?: boolean }) {
+  const inserted: unknown[] = [];
+  let deleted = false;
+  const client = {
+    from() {
+      return {
+        delete() {
+          return {
+            eq() {
+              deleted = true;
+              return Promise.resolve({
+                error: opts?.delError ? { message: "del boom" } : null,
+              });
+            },
+          };
+        },
+        insert(payload: unknown) {
+          inserted.push(payload);
+          return Promise.resolve({ error: opts?.insError ? { message: "ins boom" } : null });
+        },
+      };
+    },
+  } as unknown as SupabaseClient;
+  return { client, inserted: () => inserted, wasDeleted: () => deleted };
+}
+
+describe("replaceSnapshot", () => {
+  it("clears then inserts the ranked rows", async () => {
+    const { client, inserted } = makeSnapshotClient();
+    await replaceSnapshot(
+      "p1",
+      [
+        { id: "i1", rank: 0, score: null },
+        { id: "i2", rank: 1, score: 0.9 },
+      ],
+      client,
+    );
+    expect(inserted()).toEqual([
+      [
+        { product_id: "p1", item_id: "i1", rank: 0, score: null },
+        { product_id: "p1", item_id: "i2", rank: 1, score: 0.9 },
+      ],
+    ]);
+  });
+
+  it("clears without inserting when the snapshot is empty", async () => {
+    const { client, inserted, wasDeleted } = makeSnapshotClient();
+    await replaceSnapshot("p1", [], client);
+    expect(wasDeleted()).toBe(true);
+    expect(inserted()).toEqual([]);
+  });
+
+  it("throws when the clear fails", async () => {
+    const { client } = makeSnapshotClient({ delError: true });
+    await expect(replaceSnapshot("p1", [{ id: "i", rank: 0, score: null }], client)).rejects.toThrow(
+      /del boom/,
+    );
+  });
+});
+
+/** Client serving getProductWithItems: product, links (ordered), items (by in). */
+function makeDetailClient(opts: {
+  product?: { id: string; title: string; prompt: string; created_at: string } | null;
+  links?: Array<{ item_id: string; rank: number }>;
+  items?: Array<{ id: string; title: string }>;
+}) {
+  const client = {
+    from(table: string) {
+      if (table === "products") {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({ data: opts.product ?? null, error: null }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "product_items") {
+        return {
+          select: () => ({
+            eq: () => ({
+              order: () => Promise.resolve({ data: opts.links ?? [], error: null }),
+            }),
+          }),
+        };
+      }
+      // items
+      return {
+        select: () => ({
+          in: () => Promise.resolve({ data: opts.items ?? [], error: null }),
+        }),
+      };
+    },
+  } as unknown as SupabaseClient;
+  return { client };
+}
+
+describe("getProductWithItems", () => {
+  it("returns null when the product isn't the user's", async () => {
+    const { client } = makeDetailClient({ product: null });
+    expect(await getProductWithItems("p1", "u1", client)).toBeNull();
+  });
+
+  it("returns the product with items ordered by stored rank", async () => {
+    const { client } = makeDetailClient({
+      product: { id: "p1", title: "T", prompt: "pr", created_at: "2026-07-09T00:00:00Z" },
+      links: [
+        { item_id: "b", rank: 0 },
+        { item_id: "a", rank: 1 },
+      ],
+      // Items come back in arbitrary order; must be re-sorted to match links.
+      items: [
+        { id: "a", title: "Aye" },
+        { id: "b", title: "Bee" },
+      ],
+    });
+    const result = await getProductWithItems("p1", "u1", client);
+    expect(result?.items.map((i) => i.id)).toEqual(["b", "a"]);
+  });
+
+  it("returns an empty item list when the snapshot is empty", async () => {
+    const { client } = makeDetailClient({
+      product: { id: "p1", title: "T", prompt: "pr", created_at: "2026-07-09T00:00:00Z" },
+      links: [],
+    });
+    const result = await getProductWithItems("p1", "u1", client);
+    expect(result?.items).toEqual([]);
   });
 });

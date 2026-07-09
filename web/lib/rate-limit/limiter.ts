@@ -16,12 +16,15 @@ import { Redis } from "@upstash/redis";
  * Sliding-window limits are deliberately generous for normal use; they exist to
  * blunt scripted abuse and runaway clients, not to throttle real users.
  */
-export type RateLimitBucket = "feedback" | "candidates" | "cron";
+export type RateLimitBucket = "feedback" | "candidates" | "cron" | "products";
 
 const LIMITS: Record<RateLimitBucket, { tokens: number; window: `${number} s` }> = {
   feedback: { tokens: 60, window: "60 s" },
   candidates: { tokens: 20, window: "60 s" },
   cron: { tokens: 10, window: "60 s" },
+  // Each create/refresh does an embedding + an LLM rerank, so keep it tight to
+  // bound OpenAI spend from a hostile or runaway client.
+  products: { tokens: 10, window: "60 s" },
 };
 
 function readUpstashEnv(): { url: string; token: string } | null {

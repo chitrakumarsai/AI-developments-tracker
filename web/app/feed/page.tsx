@@ -84,6 +84,7 @@ export default async function Home({
     q?: string;
     state?: string;
     view?: string;
+    id?: string;
   }>;
 }) {
   // The feed is the gated app (2.4): anonymous visitors are sent to sign-in
@@ -101,7 +102,11 @@ export default async function Home({
     q: qParam,
     state: stateParam,
     view: viewParam,
+    id: idParam,
   } = await searchParams;
+  // Cap an incoming product id so a hostile URL can't bloat state (it's matched
+  // against the user's rows anyway).
+  const productId = idParam?.trim() ? idParam.trim().slice(0, 64) : undefined;
   const active = sectionForSlug(sectionParam);
   // "My views" is a sub-view of the Products tab (v4 Slice B): the saved
   // prompt-views surface, toggled alongside the normal content feed.
@@ -352,7 +357,7 @@ export default async function Home({
             </nav>
           ) : null}
           {isMyViews ? (
-            <MyViews />
+            <MyViews productId={productId} />
           ) : (
             <>
           <form
