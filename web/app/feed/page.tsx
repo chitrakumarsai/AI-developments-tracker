@@ -19,7 +19,9 @@ import { feedHref } from "@/lib/feed/filterHref";
 import { listViews, type SavedView } from "@/lib/views/persist";
 import type { SavedFilters } from "@/lib/views/href";
 import { SavedViewsBar } from "@/components/feed/SavedViewsBar";
+import { SourcePicker } from "@/components/feed/SourcePicker";
 import { WelcomeBanner } from "@/components/feed/WelcomeBanner";
+import { listSourceOptions, type SourceOption } from "@/lib/sources/persist";
 import { AuthStatus } from "@/components/auth/AuthStatus";
 import { getSessionUser } from "@/lib/auth/session";
 import { requireSession } from "@/lib/auth/gate";
@@ -176,6 +178,28 @@ export default async function Home({
     savedViews = [];
   }
 
+  // Source-picker options (v4 findability): active sources for the dropdown. A
+  // DB hiccup must not break the feed — fall back to none (the picker hides).
+  let sourceOptions: SourceOption[] = [];
+  try {
+    const client = await createServerSupabaseClient();
+    sourceOptions = await listSourceOptions(client);
+  } catch {
+    sourceOptions = [];
+  }
+
+  // The shared filter context the source picker preserves when it navigates.
+  const feedContext = {
+    section: active.slug,
+    sort,
+    window,
+    source,
+    platform,
+    tag,
+    q,
+    state,
+  };
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-[var(--space-gutter)] lg:max-w-none lg:px-[clamp(2rem,4vw,4rem)]">
       <header className="border-b border-rule py-6">
@@ -325,8 +349,9 @@ export default async function Home({
             hasActiveFilters={hasActiveFilters}
           />
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-4 text-xs">
-            <div className="flex items-center gap-1" aria-label="Time window">
-              <span className="mr-1 text-faint">Window</span>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <div className="flex items-center gap-1" aria-label="Time window">
+                <span className="mr-1 text-faint">Window</span>
               {WINDOW_OPTIONS.map((option) => {
                 const isActive = window === option.key;
                 return (
@@ -353,6 +378,12 @@ export default async function Home({
                   </Link>
                 );
               })}
+              </div>
+              <SourcePicker
+                sources={sourceOptions}
+                current={feedContext}
+                activeSource={source}
+              />
             </div>
             <div className="flex items-center gap-1" aria-label="Sort order">
               <span className="mr-1 text-faint">Sort</span>
@@ -421,6 +452,7 @@ export default async function Home({
           >
             <FeedList
               category={active.category}
+              categories={active.categories}
               source={source}
               platform={platform}
               tag={tag}

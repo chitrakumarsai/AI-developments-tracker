@@ -34,6 +34,8 @@ function Notice({ title, body }: { title: string; body: string }) {
 type FeedListProps = {
   /** DB category to filter to; null/undefined shows all categories. */
   category?: string | null;
+  /** Multi-category filter (the More tab); takes precedence over `category`. */
+  categories?: readonly string[] | null;
   /** Restrict to one source id; null/undefined shows all sources. */
   source?: string | null;
   /** Restrict to one derived platform slug; null/undefined = all platforms. */
@@ -63,6 +65,7 @@ type FeedListProps = {
  */
 export async function FeedList({
   category,
+  categories,
   source,
   platform,
   tag,
@@ -110,6 +113,7 @@ export async function FeedList({
     items = await getFeedItems(
       {
         category,
+        categories,
         source,
         platform,
         tag,
@@ -145,7 +149,10 @@ export async function FeedList({
 
   if (items.length === 0) {
     const isFiltered = Boolean(source || platform || tag || q || state);
-    const scope = category ? `${sectionLabel ?? "this section"}` : "the feed";
+    const scope =
+      category || (categories && categories.length > 0)
+        ? `${sectionLabel ?? "this section"}`
+        : "the feed";
     return (
       <>
         <ActiveFilters context={context} sourceLabel={sourceLabel} platformLabel={platformLabel} />
