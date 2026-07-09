@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { IngestionResult } from "./types";
+import { embedItems } from "../embeddings/embedItems";
+import type { Embed } from "../llm/openai";
 
 export type PersistOutcome = {
   added: number;
@@ -18,6 +20,7 @@ export type PersistOutcome = {
 export async function persistItems(
   client: SupabaseClient,
   result: IngestionResult,
+  embedFn?: Embed,
 ): Promise<PersistOutcome> {
   const warnings = [...result.warnings];
 
@@ -39,7 +42,7 @@ export async function persistItems(
     const { data, error } = await client
       .from("items")
       .upsert(rows, { onConflict: "url", ignoreDuplicates: true })
-      .select("id");
+      .select("id, title, summary");
 
     if (error) {
       return {
@@ -48,7 +51,18 @@ export async function persistItems(
         warnings: [...warnings, `Persist error: ${error.message}`],
       };
     }
-    added = data?.length ?? 0;
+    const inserted = (data ?? []) as Array<{ id: string; title: string | null; summary: string | null }>;
+    added = inserted.length;
+
+    // Embed the newly-inserted items for semantic prompt-views (v4 Slice B),
+    // best-effort: a failure only warns and never blocks ingest (the backfill
+    // route catches stragglers). Skipped when no key is configured AND no
+    // embedder is injected, so the no-network test env stays quiet.
+    const shouldEmbed = Boolean(embedFn) || Boolean(process.env.OPENAI_API_KEY);
+    if (added > 0 && shouldEmbed) {
+      const { warnings: embedWarnings } = await embedItems(client, inserted, embedFn);
+      warnings.push(...embedWarnings);
+    }
 
     // Refresh the popularity signals on existing rows too: `ignoreDuplicates`
     // skips them on insert, but stars/likes/forks change over time and should
