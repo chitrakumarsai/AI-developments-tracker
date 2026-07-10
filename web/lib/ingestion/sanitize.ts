@@ -17,6 +17,16 @@ const NAMED_ENTITIES: Readonly<Record<string, string>> = {
   quot: '"',
   apos: "'",
   nbsp: " ",
+  // Typographic entities common in `og:` attributes and blog titles. Unknown
+  // names are left as literal text by `decodeEntity`, so this list is additive
+  // and safe to extend.
+  rsquo: "’",
+  lsquo: "‘",
+  rdquo: "”",
+  ldquo: "“",
+  mdash: "—",
+  ndash: "–",
+  hellip: "…",
 };
 
 const MAX_CODEPOINT = 0x10ffff;

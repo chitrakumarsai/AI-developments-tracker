@@ -1,6 +1,6 @@
 import type { Connector, IngestionResult, NormalizedItem, SourceRef } from "../types";
 import { sanitizeText, sanitizeUrl } from "../sanitize";
-import { FETCH_TIMEOUT_MS, USER_AGENT, unsafeUrlReason } from "../net";
+import { FETCH_TIMEOUT_MS, safeFetch, unsafeUrlReason, USER_AGENT } from "../net";
 
 /**
  * Reddit connector — top-of-month posts from a subreddit via the public
@@ -140,7 +140,7 @@ export const redditConnector: Connector = async (source) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(source.url, { signal: controller.signal, headers });
+    const response = await safeFetch(source.url, { signal: controller.signal, headers });
     if (!response.ok) {
       warnings.push(`Fetch failed for ${source.name}: HTTP ${response.status}.`);
       return { sourceId: source.id, items: [], warnings };

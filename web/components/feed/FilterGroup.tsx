@@ -29,13 +29,16 @@ type FilterGroupProps = {
 
 export function FilterGroup({ label, options }: FilterGroupProps) {
   return (
-    <div className="flex items-center gap-2">
+    // `max-w-full` + a wrapping track: a group with many options (Platform has
+    // five) is otherwise one unbreakable child wider than a 320px viewport, and
+    // pushes the whole page sideways.
+    <div className="flex max-w-full flex-wrap items-center gap-x-2 gap-y-1">
       <span className="text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-muted">
         {label}
       </span>
       <ul
         aria-label={label}
-        className="flex items-center gap-0.5 rounded-[var(--radius-md)] bg-sunken p-1"
+        className="flex max-w-full flex-wrap items-center gap-0.5 rounded-[var(--radius-md)] bg-sunken p-1"
       >
         {options.map((option) => (
           <li key={option.key}>

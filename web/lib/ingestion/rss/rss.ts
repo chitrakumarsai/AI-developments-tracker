@@ -7,7 +7,7 @@ import type {
   SourceRef,
 } from "../types";
 import { sanitizeText, sanitizeUrl } from "../sanitize";
-import { FETCH_TIMEOUT_MS, USER_AGENT, unsafeUrlReason } from "../net";
+import { FETCH_TIMEOUT_MS, safeFetch, unsafeUrlReason, USER_AGENT } from "../net";
 
 /**
  * Generic RSS/Atom connector — the link-first reference implementation
@@ -110,7 +110,7 @@ export const rssConnector: Connector = async (source) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(source.url, {
+    const response = await safeFetch(source.url, {
       signal: controller.signal,
       headers: { "user-agent": USER_AGENT, accept: "application/rss+xml, application/xml" },
     });

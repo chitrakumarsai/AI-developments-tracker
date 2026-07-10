@@ -1,6 +1,6 @@
 import type { Connector } from "../types";
 import { parseRssFeed } from "../rss/rss";
-import { FETCH_TIMEOUT_MS, USER_AGENT, unsafeUrlReason } from "../net";
+import { FETCH_TIMEOUT_MS, safeFetch, unsafeUrlReason, USER_AGENT } from "../net";
 
 /**
  * arXiv connector — most-recent papers per category via the arXiv Atom API,
@@ -60,7 +60,7 @@ export const arxivConnector: Connector = async (source) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(requestUrl, {
+    const response = await safeFetch(requestUrl, {
       signal: controller.signal,
       headers: { "user-agent": USER_AGENT, accept: "application/atom+xml, application/xml" },
     });

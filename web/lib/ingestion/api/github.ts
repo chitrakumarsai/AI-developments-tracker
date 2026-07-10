@@ -1,6 +1,6 @@
 import type { Connector, IngestionResult, NormalizedItem, SourceRef } from "../types";
 import { sanitizeText, sanitizeUrl } from "../sanitize";
-import { FETCH_TIMEOUT_MS, USER_AGENT, unsafeUrlReason } from "../net";
+import { FETCH_TIMEOUT_MS, safeFetch, unsafeUrlReason, USER_AGENT } from "../net";
 
 /**
  * GitHub connector — notable AI repositories via the Search API, link-first
@@ -120,7 +120,7 @@ export const githubConnector: Connector = async (source) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(requestUrl, { signal: controller.signal, headers });
+    const response = await safeFetch(requestUrl, { signal: controller.signal, headers });
     if (!response.ok) {
       warnings.push(`Fetch failed for ${source.name}: HTTP ${response.status}.`);
       return { sourceId: source.id, items: [], warnings };

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { sourceFilterHref, type FeedHrefParams } from "@/lib/feed/filterHref";
 import { ALL_SOURCES, pickerOptions } from "@/lib/feed/sourceSearch";
+import { comboboxKey } from "@/lib/feed/comboboxKeys";
 
 /** A `{ id, name }` option — mirrors `SourceOption` without the server-only import. */
 export type SourcePickerOption = { id: string; name: string };
@@ -92,40 +93,28 @@ export function SourcePicker({ sources, current, activeSource }: SourcePickerPro
   }
 
   function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    switch (event.key) {
-      case "ArrowDown":
-        event.preventDefault();
-        if (!isOpen) return open();
-        if (options.length === 0) return;
-        return setHighlight((i) => (i + 1) % options.length);
-      case "ArrowUp":
-        event.preventDefault();
-        if (!isOpen) return open();
-        if (options.length === 0) return;
-        return setHighlight((i) => (i - 1 + options.length) % options.length);
-      case "Home":
-        if (!isOpen) return;
-        event.preventDefault();
-        return setHighlight(0);
-      case "End":
-        if (!isOpen || options.length === 0) return;
-        event.preventDefault();
-        return setHighlight(options.length - 1);
-      case "Enter":
-        if (!isOpen) return;
-        event.preventDefault();
-        return choose(options[highlight]);
-      case "Escape":
-        // First Escape closes the list; a second gives the input back to the page.
-        if (isOpen) {
-          event.preventDefault();
-          return close();
-        }
+    // The keyboard state machine is a pure function (`comboboxKey`), unit-tested
+    // on its own. Here we only translate its decision into DOM/state effects.
+    const action = comboboxKey(event.key, {
+      isOpen,
+      highlight,
+      optionCount: options.length,
+    });
+    if (!action) return;
+    if (action.preventDefault) event.preventDefault();
+
+    switch (action.type) {
+      case "open":
+        return open();
+      case "close":
+        return close();
+      case "blur":
         return inputRef.current?.blur();
-      case "Tab":
-        if (isOpen) close();
-        return;
-      default:
+      case "highlight":
+        return setHighlight(action.index);
+      case "choose":
+        return choose(options[action.index]);
+      case "none":
         return;
     }
   }
