@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { unsafeUrlReason, ipIsPrivate, fetchFollowingSafeRedirects, readTextCapped } from "./net";
+import { unsafeUrlReason, ipIsPrivate, fetchFollowingSafeRedirects, readTextCapped, createSafeLookup } from "./net";
 
 describe("unsafeUrlReason", () => {
   it("allows public http(s) URLs", () => {
@@ -115,5 +115,84 @@ describe("readTextCapped", () => {
     });
     const res = { ok: true, status: 200, text: async () => "", body };
     await expect(readTextCapped(res, 16)).rejects.toThrow(/exceeds 16 bytes/);
+  });
+});
+
+/**
+ * DNS rebinding: `unsafeUrlReason` only inspects the hostname string, so a
+ * public-looking host that resolves to 127.0.0.1 slips through. The socket-level
+ * lookup is the only place that can see the real address.
+ */
+describe("createSafeLookup (DNS-rebinding guard)", () => {
+  type Addr = { address: string; family: number };
+  type Cb = (err: Error | null, address?: unknown, family?: number) => void;
+  type Resolver = (hostname: string, options: unknown, cb: Cb) => void;
+
+  const resolver =
+    (addresses: Addr[]): Resolver =>
+    (_hostname, _options, cb) =>
+      cb(null, addresses);
+
+  function run(addresses: Addr[], options: object = {}) {
+    return new Promise<{ err: Error | null; result: unknown }>((resolve) => {
+      const lookup = createSafeLookup(resolver(addresses) as never) as unknown as Resolver;
+      lookup("host.test", options, (err, a) => resolve({ err, result: a }));
+    });
+  }
+
+  it("blocks a public hostname that resolves to loopback", async () => {
+    const { err } = await run([{ address: "127.0.0.1", family: 4 }]);
+    expect(err?.message).toMatch(/127\.0\.0\.1/);
+  });
+
+  it("blocks the cloud metadata address", async () => {
+    const { err } = await run([{ address: "169.254.169.254", family: 4 }]);
+    expect(err).toBeTruthy();
+  });
+
+  it("blocks private RFC1918 ranges", async () => {
+    for (const ip of ["10.0.0.5", "192.168.1.1", "172.16.0.9"]) {
+      const { err } = await run([{ address: ip, family: 4 }]);
+      expect(err, ip).toBeTruthy();
+    }
+  });
+
+  it("blocks IPv6 loopback and unique-local", async () => {
+    for (const ip of ["::1", "fd00::1", "fe80::1"]) {
+      const { err } = await run([{ address: ip, family: 6 }]);
+      expect(err, ip).toBeTruthy();
+    }
+  });
+
+  it("blocks when ANY resolved address is private (round-robin rebinding)", async () => {
+    // A rebinding host can return one public and one private A record; taking
+    // the first would be a coin flip.
+    const { err } = await run([
+      { address: "93.184.216.34", family: 4 },
+      { address: "127.0.0.1", family: 4 },
+    ]);
+    expect(err?.message).toMatch(/127\.0\.0\.1/);
+  });
+
+  it("allows a genuinely public address, preserving the callback shape", async () => {
+    const { err, result } = await run([{ address: "93.184.216.34", family: 4 }]);
+    expect(err).toBeNull();
+    expect(result).toBe("93.184.216.34"); // non-`all` callers get a bare address
+  });
+
+  it("preserves the `all: true` array shape undici uses", async () => {
+    const addresses = [{ address: "93.184.216.34", family: 4 }];
+    const { err, result } = await run(addresses, { all: true });
+    expect(err).toBeNull();
+    expect(result).toEqual(addresses);
+  });
+
+  it("propagates a resolver error rather than failing open", async () => {
+    const failing: Resolver = (_h, _o, cb) => cb(new Error("ENOTFOUND"));
+    const lookup = createSafeLookup(failing as never) as unknown as Resolver;
+    const err = await new Promise<Error | null>((resolve) =>
+      lookup("host.test", {}, (e) => resolve(e)),
+    );
+    expect(err?.message).toMatch(/ENOTFOUND/);
   });
 });

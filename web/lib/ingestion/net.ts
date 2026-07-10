@@ -5,6 +5,9 @@
  * and future ones — enforces the same rules instead of copying them.
  */
 
+import { lookup as dnsLookup } from "node:dns";
+import { Agent } from "undici";
+
 export const FETCH_TIMEOUT_MS = 15_000;
 export const USER_AGENT = "AIChronicles/0.1 (+https://github.com/ai-developments-tracker)";
 
@@ -83,6 +86,72 @@ export function ipIsPrivate(ip: string): boolean {
   if (v6.startsWith("::ffff:")) return PRIVATE_HOST.some((p) => p.test(v6.slice(7)));
   return false;
 }
+
+type LookupAddress = { address: string; family: number };
+type LookupCallback = (
+  err: NodeJS.ErrnoException | null,
+  address?: string | LookupAddress[],
+  family?: number,
+) => void;
+type LookupFn = (hostname: string, options: unknown, callback: LookupCallback) => void;
+
+/**
+ * A DNS `lookup` that refuses to resolve a hostname to a private address.
+ *
+ * `unsafeUrlReason` inspects the hostname *string* only, so `rebind.evil.com`
+ * passes it and can still answer `127.0.0.1` — or `169.254.169.254` — when the
+ * socket is actually opened. Guarding here is the only place that sees the real
+ * address, and because undici connects to the address this lookup returns,
+ * there is no window between the check and the connect (no TOCTOU).
+ *
+ * Blocks when ANY resolved address is private: a rebinding host can return one
+ * public and one private record, and picking the first would be a coin flip.
+ * A resolver error propagates — it must never fail open.
+ */
+export function createSafeLookup(inner: LookupFn = dnsLookup as unknown as LookupFn): LookupFn {
+  return function safeLookup(hostname, options, callback) {
+    const cb = (typeof options === "function" ? options : callback) as LookupCallback;
+    const opts = (typeof options === "function" ? {} : (options ?? {})) as { all?: boolean };
+
+    inner(hostname, { ...opts, all: true }, (err, addresses) => {
+      if (err) return cb(err);
+      const list = (Array.isArray(addresses) ? addresses : []) as LookupAddress[];
+      if (list.length === 0) {
+        return cb(new Error(`no address for "${hostname}"`));
+      }
+      const blocked = list.find((entry) => ipIsPrivate(entry.address));
+      if (blocked) {
+        return cb(
+          new Error(`blocked private address ${blocked.address} for "${hostname}" (DNS rebinding)`),
+        );
+      }
+      if (opts.all) return cb(null, list);
+      return cb(null, list[0].address, list[0].family);
+    });
+  };
+}
+
+/**
+ * The dispatcher every ingestion fetch goes through. Its connect step resolves
+ * DNS via `createSafeLookup`, so a rebinding host is refused at the socket.
+ */
+const safeAgent = new Agent({
+  connect: { lookup: createSafeLookup() as never },
+});
+
+/**
+ * `fetch` for untrusted, catalog-supplied URLs.
+ *
+ * Delegates to the global fetch (so tests that stub it keep working) but pins
+ * the undici dispatcher that carries the DNS guard. Every ingestion connector
+ * must use this rather than bare `fetch`.
+ */
+export const safeFetch: typeof globalThis.fetch = (input, init) =>
+  globalThis.fetch(input as RequestInfo, {
+    ...(init ?? {}),
+    // Non-standard but honoured by Node's undici-backed fetch.
+    dispatcher: safeAgent,
+  } as RequestInit);
 
 /**
  * Fetch `url`, following redirects MANUALLY so the SSRF guard runs on every hop

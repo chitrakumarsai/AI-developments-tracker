@@ -4,6 +4,7 @@ import {
   FETCH_TIMEOUT_MS,
   fetchFollowingSafeRedirects,
   readTextCapped,
+  safeFetch,
   unsafeUrlReason,
   type FetchLike,
   type FetchResponse,
@@ -34,7 +35,7 @@ export type { FetchLike, FetchResponse };
 export async function validateFeedUrl(
   url: string,
   ingestionType: "rss" | "api" | "scrape" | "manual" = "rss",
-  fetchImpl: FetchLike = fetch as unknown as FetchLike,
+  fetchImpl: FetchLike = safeFetch as unknown as FetchLike,
 ): Promise<FeedValidation> {
   const unsafe = unsafeUrlReason(url);
   if (unsafe) return { ok: false, reason: unsafe };

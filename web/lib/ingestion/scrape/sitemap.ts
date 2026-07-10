@@ -4,6 +4,7 @@ import {
   FETCH_TIMEOUT_MS,
   fetchFollowingSafeRedirects,
   readTextCapped,
+  safeFetch,
   unsafeUrlReason,
   type FetchLike,
 } from "../net";
@@ -302,7 +303,7 @@ async function fetchText(
  * abort a multi-source run (§12.7).
  */
 export const sitemapConnector: Connector = async (source: SourceRef) =>
-  ingestSitemap(source, fetch as unknown as FetchLike, Date.now() + SOURCE_DEADLINE_MS);
+  ingestSitemap(source, safeFetch as unknown as FetchLike, Date.now() + SOURCE_DEADLINE_MS);
 
 /** The connector body, with `fetch` and the deadline injected so it is testable. */
 export async function ingestSitemap(
