@@ -45,7 +45,7 @@ export function ActiveFilters({ context, sourceLabel, platformLabel }: ActiveFil
         <Link
           href={feedHref({ ...context, q: null, show: null })}
           aria-label={`Clear search: ${context.q}`}
-          className={`${PILL} bg-accent/10 text-accent hover:bg-accent/20`}
+          className={`${PILL} bg-accent-soft text-accent hover:bg-accent hover:text-accent-ink`}
         >
           “{context.q}”
           <span aria-hidden="true">×</span>
@@ -56,7 +56,7 @@ export function ActiveFilters({ context, sourceLabel, platformLabel }: ActiveFil
         <Link
           href={feedHref({ ...context, source: null, show: null })}
           aria-label={`Clear source filter${sourceLabel ? `: ${sourceLabel}` : ""}`}
-          className={`${PILL} bg-accent/10 text-accent hover:bg-accent/20`}
+          className={`${PILL} bg-accent-soft text-accent hover:bg-accent hover:text-accent-ink`}
         >
           {sourceLabel ?? "This source"}
           <span aria-hidden="true">×</span>
@@ -67,7 +67,7 @@ export function ActiveFilters({ context, sourceLabel, platformLabel }: ActiveFil
         <Link
           href={feedHref({ ...context, platform: null, show: null })}
           aria-label={`Clear platform filter${platformLabel ? `: ${platformLabel}` : ""}`}
-          className={`${PILL} bg-accent/10 text-accent hover:bg-accent/20`}
+          className={`${PILL} bg-accent-soft text-accent hover:bg-accent hover:text-accent-ink`}
         >
           {platformLabel ?? context.platform}
           <span aria-hidden="true">×</span>
@@ -78,7 +78,7 @@ export function ActiveFilters({ context, sourceLabel, platformLabel }: ActiveFil
         <Link
           href={feedHref({ ...context, tag: null, show: null })}
           aria-label={`Clear tag filter: ${context.tag}`}
-          className={`${PILL} bg-rule/60 text-muted hover:text-ink`}
+          className={`${PILL} bg-sunken text-muted hover:text-ink`}
         >
           #{context.tag}
           <span aria-hidden="true">×</span>
@@ -89,7 +89,7 @@ export function ActiveFilters({ context, sourceLabel, platformLabel }: ActiveFil
         <Link
           href={feedHref({ ...context, state: null, show: null })}
           aria-label={`Clear ${STATE_LABELS[context.state] ?? context.state} filter`}
-          className={`${PILL} bg-rule/60 text-muted hover:text-ink`}
+          className={`${PILL} bg-sunken text-muted hover:text-ink`}
         >
           {STATE_LABELS[context.state] ?? context.state}
           <span aria-hidden="true">×</span>

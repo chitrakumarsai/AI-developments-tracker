@@ -42,13 +42,13 @@ export default async function SourcesPage() {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-[var(--space-gutter)] lg:max-w-none lg:px-[clamp(2rem,4vw,4rem)]">
       <header className="border-b border-rule py-6">
-        <div className="flex items-baseline justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">
             Sources
           </h1>
           <Link
             href="/feed"
-            className="text-xs uppercase tracking-[0.18em] text-muted transition-colors hover:text-ink"
+            className="inline-flex min-h-[36px] items-center rounded-[var(--radius-md)] border border-rule bg-surface px-3 text-sm text-muted shadow-card transition-colors hover:border-muted hover:text-ink"
           >
             ← Feed
           </Link>
@@ -61,7 +61,7 @@ export default async function SourcesPage() {
       </header>
 
       <main className="flex flex-1 flex-col gap-8 py-6">
-        <section aria-label="Live catalog" className="flex flex-col gap-3">
+        <section aria-label="Live catalog" className="flex flex-col gap-3 rounded-[var(--radius-lg)] border border-rule bg-surface p-[var(--space-card)] shadow-card">
           <h2 className="text-xs uppercase tracking-[0.18em] text-faint">Live catalog</h2>
           {isOwner ? <AddSourceForm /> : null}
           {catalogFailed ? (
@@ -73,12 +73,12 @@ export default async function SourcesPage() {
           )}
         </section>
 
-        <section aria-label="Source discovery" className="flex flex-col gap-3">
+        <section aria-label="Source discovery" className="flex flex-col gap-3 rounded-[var(--radius-lg)] border border-rule bg-surface p-[var(--space-card)] shadow-card">
           <h2 className="text-xs uppercase tracking-[0.18em] text-faint">
             Propose &amp; rate
           </h2>
           {isOwner ? (
-            <div className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-rule p-4">
+            <div className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-rule bg-sunken p-4">
               <p className="text-sm text-muted">
                 Discover new candidates automatically — scans what your active
                 sources link out to and proposes the outlets they keep referencing.

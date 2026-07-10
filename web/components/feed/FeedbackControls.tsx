@@ -59,8 +59,8 @@ export function FeedbackControls({ itemId, initialValue }: FeedbackControlsProps
         aria-label={value === "up" ? "Remove thumbs up" : "Thumbs up"}
         className={`${BUTTON} ${
           value === "up"
-            ? "bg-accent/15 text-accent"
-            : "text-faint hover:bg-rule/40 hover:text-ink"
+            ? "bg-accent-soft text-accent"
+            : "text-faint hover:bg-sunken hover:text-ink"
         }`}
       >
         <span aria-hidden="true">👍</span>
@@ -72,8 +72,8 @@ export function FeedbackControls({ itemId, initialValue }: FeedbackControlsProps
         aria-label={value === "down" ? "Remove thumbs down" : "Thumbs down"}
         className={`${BUTTON} ${
           value === "down"
-            ? "bg-rule/70 text-ink"
-            : "text-faint hover:bg-rule/40 hover:text-ink"
+            ? "bg-rule text-ink"
+            : "text-faint hover:bg-sunken hover:text-ink"
         }`}
       >
         <span aria-hidden="true">👎</span>

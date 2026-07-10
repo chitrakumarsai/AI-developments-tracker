@@ -35,17 +35,17 @@ export function FilterGroup({ label, options }: FilterGroupProps) {
       </span>
       <ul
         aria-label={label}
-        className="flex items-center gap-0.5 rounded-[var(--radius-md)] border border-rule bg-surface p-0.5"
+        className="flex items-center gap-0.5 rounded-[var(--radius-md)] bg-sunken p-1"
       >
         {options.map((option) => (
           <li key={option.key}>
             <Link
               href={option.href}
               aria-current={option.isActive ? "true" : undefined}
-              className={`inline-flex min-h-[34px] items-center whitespace-nowrap rounded-[var(--radius-sm)] px-2.5 text-xs font-medium transition-colors ${
+              className={`inline-flex min-h-[32px] items-center whitespace-nowrap rounded-[var(--radius-sm)] px-2.5 text-xs font-medium transition-colors ${
                 option.isActive
-                  ? "bg-ink text-surface"
-                  : "text-muted hover:bg-rule/40 hover:text-ink"
+                  ? "bg-surface text-ink shadow-card"
+                  : "text-muted hover:text-ink"
               }`}
             >
               {option.label}

@@ -95,7 +95,7 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
           value={capValue}
           onChange={(e) => setCap(e.target.value)}
           placeholder="Unlimited"
-          className="min-h-[44px] w-28 rounded-[var(--radius-sm)] border border-rule bg-transparent px-3 text-sm text-ink placeholder:text-faint focus:border-accent"
+          className="min-h-[44px] w-28 rounded-[var(--radius-md)] border border-rule bg-transparent px-3 text-sm text-ink placeholder:text-faint focus:border-accent"
         />
       </div>
 
@@ -113,7 +113,7 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
           value={settings.includeKeywords.join(", ")}
           onChange={(e) => setKeywords("includeKeywords", e.target.value)}
           placeholder="agents, rl, vision"
-          className="min-h-[44px] rounded-[var(--radius-sm)] border border-rule bg-transparent px-3 text-sm text-ink placeholder:text-faint focus:border-accent"
+          className="min-h-[44px] rounded-[var(--radius-md)] border border-rule bg-transparent px-3 text-sm text-ink placeholder:text-faint focus:border-accent"
         />
       </div>
 
@@ -130,7 +130,7 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
           value={settings.excludeKeywords.join(", ")}
           onChange={(e) => setKeywords("excludeKeywords", e.target.value)}
           placeholder="crypto, nft"
-          className="min-h-[44px] rounded-[var(--radius-sm)] border border-rule bg-transparent px-3 text-sm text-ink placeholder:text-faint focus:border-accent"
+          className="min-h-[44px] rounded-[var(--radius-md)] border border-rule bg-transparent px-3 text-sm text-ink placeholder:text-faint focus:border-accent"
         />
       </div>
 
@@ -162,7 +162,7 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
         <button
           type="submit"
           disabled={busy}
-          className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] bg-ink px-5 text-sm font-medium text-surface transition-colors hover:bg-accent disabled:opacity-50"
+          className="inline-flex min-h-[44px] items-center rounded-[var(--radius-md)] bg-accent px-5 text-sm font-medium text-accent-ink shadow-card transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           Save settings
         </button>

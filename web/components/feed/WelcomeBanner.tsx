@@ -52,7 +52,7 @@ export function WelcomeBanner() {
   return (
     <aside
       aria-label="Welcome"
-      className="mt-4 rounded-[var(--radius-md)] border border-rule bg-surface/40 p-4"
+      className="mt-4 rounded-[var(--radius-md)] border border-rule bg-sunken p-4"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">

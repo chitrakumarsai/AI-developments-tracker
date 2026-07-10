@@ -66,7 +66,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
       {linkSent ? (
         <p
           role="status"
-          className="mb-4 rounded-[var(--radius-sm)] border border-accent/40 bg-accent/10 px-3 py-2 text-sm text-ink"
+          className="mb-4 rounded-[var(--radius-sm)] border border-accent bg-accent-soft px-3 py-2 text-sm text-ink"
         >
           Check your inbox — we sent you a magic link to finish signing in.
         </p>
@@ -104,7 +104,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           type="submit"
           name="intent"
           value="magic"
-          className="min-h-[48px] rounded-[var(--radius-sm)] bg-ink px-4 text-sm font-medium text-surface transition-opacity hover:opacity-90"
+          className="min-h-[48px] rounded-[var(--radius-md)] bg-accent px-4 text-sm font-medium text-accent-ink shadow-card transition-opacity hover:opacity-90"
         >
           Send magic link
         </button>

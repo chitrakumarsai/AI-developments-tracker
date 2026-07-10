@@ -51,7 +51,7 @@ const WATCHES: ReadonlyArray<string> = [
 ];
 
 const CTA_PRIMARY =
-  "inline-flex min-h-[48px] items-center justify-center rounded-[var(--radius-sm)] bg-ink px-6 text-sm font-medium text-surface transition-opacity hover:opacity-90";
+  "inline-flex min-h-[48px] items-center justify-center rounded-[var(--radius-md)] bg-accent px-6 text-sm font-medium text-accent-ink shadow-card transition-opacity hover:opacity-90";
 const CTA_SECONDARY =
   "inline-flex min-h-[48px] items-center justify-center rounded-[var(--radius-sm)] border border-rule px-6 text-sm font-medium text-ink transition-colors hover:border-accent hover:text-accent";
 
@@ -218,7 +218,7 @@ export default async function Landing() {
               <TeaserList items={teaser} />
             </div>
 
-            <div className="mt-10 rounded-[var(--radius-md)] border border-rule bg-surface/40 p-8 text-center">
+            <div className="mt-10 rounded-[var(--radius-md)] border border-rule bg-sunken p-8 text-center">
               <p className="font-display text-xl text-ink">
                 Want the top-rated, personalized feed?
               </p>
