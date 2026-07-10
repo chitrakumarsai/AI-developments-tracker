@@ -28,8 +28,16 @@ const PAGES = [
   { path: "/settings", heading: "Settings" },
 ] as const;
 
-/** True when the document is wider than the viewport (a real mobile bug). */
+/**
+ * Pixels by which the document exceeds the viewport (a real mobile bug).
+ *
+ * Waits for the streamed feed and for web fonts before measuring: `networkidle`
+ * fires before a Suspense boundary resolves and before Fraunces/Inter swap in,
+ * and either can shift layout after the fact — which made this measurement flaky.
+ */
 async function horizontalOverflow(page: import("@playwright/test").Page) {
+  await page.locator("main").first().waitFor({ state: "visible" });
+  await page.evaluate(() => document.fonts.ready);
   return page.evaluate(() => {
     const doc = document.documentElement;
     return doc.scrollWidth - doc.clientWidth;
@@ -83,6 +91,9 @@ test.describe("v5 structure", () => {
     // harness limitation, not a product bug — real production is https.
     await expect(ask).toHaveAttribute("href", /section=ask/);
     await page.goto("/feed?section=ask");
+    // The Ask surface renders server-side; wait for its heading before asserting
+    // on the form, so a slow paint doesn't read as a missing control.
+    await expect(page.getByRole("heading", { name: /Ask for what you want to track/i })).toBeVisible();
     await expect(page.getByPlaceholder(/Describe what you want to track/i)).toBeVisible();
     await expect(page.getByPlaceholder(/Search titles/i)).toHaveCount(0);
   });
