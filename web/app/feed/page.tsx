@@ -23,6 +23,7 @@ import { FilterGroup } from "@/components/feed/FilterGroup";
 import { SourcePicker } from "@/components/feed/SourcePicker";
 import { MyViews } from "@/components/feed/MyViews";
 import { WelcomeBanner } from "@/components/feed/WelcomeBanner";
+import { LogoMark } from "@/components/brand/Logo";
 import { listSourceOptions, type SourceOption } from "@/lib/sources/persist";
 import { AuthStatus } from "@/components/auth/AuthStatus";
 import { getSessionUser } from "@/lib/auth/session";
@@ -223,11 +224,14 @@ export default async function Home({
       */}
       <header className="border-b border-rule">
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 py-5">
-          <div>
-            <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">
-              AI Chronicles
-            </h1>
-            <p className="mt-0.5 text-xs text-faint">Find the signal in AI</p>
+          <div className="flex items-center gap-3">
+            <LogoMark size={40} className="shrink-0" />
+            <div>
+              <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">
+                AI Chronicles
+              </h1>
+              <p className="mt-0.5 text-xs text-faint">Find the signal in AI</p>
+            </div>
           </div>
           <nav aria-label="Account" className="flex items-center gap-1 text-sm">
             <Link
