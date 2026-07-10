@@ -63,28 +63,132 @@ export function unsafeUrlReason(url: string): string | null {
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
     return `disallowed scheme "${parsed.protocol}"`;
   }
-  if (PRIVATE_HOST.some((pattern) => pattern.test(parsed.hostname))) {
+  // Delegates to `ipIsPrivate` so an IP *literal* in the URL is caught here.
+  // It has to be: undici performs no DNS lookup for a literal, so the
+  // rebinding guard never sees `http://[::ffff:127.0.0.1]/`.
+  if (ipIsPrivate(parsed.hostname)) {
     return `private/loopback host "${parsed.hostname}"`;
   }
   return null;
 }
 
+/** Reserved IPv4 blocks, as [network, prefix-length] pairs. */
+const PRIVATE_V4_BLOCKS: ReadonlyArray<readonly [string, number]> = [
+  ["0.0.0.0", 8], // "this network"
+  ["10.0.0.0", 8], // RFC1918
+  ["100.64.0.0", 10], // CGNAT
+  ["127.0.0.0", 8], // loopback
+  ["169.254.0.0", 16], // link-local + cloud metadata (IMDS)
+  ["172.16.0.0", 12], // RFC1918
+  ["192.0.0.0", 24], // IETF protocol assignments
+  ["192.168.0.0", 16], // RFC1918
+  ["198.18.0.0", 15], // benchmarking
+  ["224.0.0.0", 4], // multicast
+  ["240.0.0.0", 4], // reserved, incl. 255.255.255.255
+];
+
+/** Dotted-quad → unsigned 32-bit, or null when it isn't a valid IPv4 literal. */
+function v4ToInt(ip: string): number | null {
+  const parts = ip.split(".");
+  if (parts.length !== 4) return null;
+  let value = 0;
+  for (const part of parts) {
+    if (!/^\d{1,3}$/.test(part)) return null;
+    const octet = Number(part);
+    if (octet > 255) return null;
+    value = value * 256 + octet;
+  }
+  return value >>> 0;
+}
+
+function v4IsPrivate(ip: string): boolean {
+  const value = v4ToInt(ip);
+  if (value === null) return false;
+  return PRIVATE_V4_BLOCKS.some(([network, bits]) => {
+    const net = v4ToInt(network);
+    if (net === null) return false;
+    const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
+    return ((value & mask) >>> 0) === ((net & mask) >>> 0);
+  });
+}
+
 /**
- * True when a *resolved* IP address falls in a private/loopback/link-local
- * range. `unsafeUrlReason` only inspects the hostname string; this checks the
- * address a hostname actually resolves to, so a caller that resolves DNS first
- * can defend against DNS-rebinding (a public-looking host pointing at
- * 127.x/10.x/169.254.x metadata). The IP-shaped `PRIVATE_HOST` patterns cover
- * IPv4 + `::1`; the extra checks cover common IPv6 private/mapped forms.
+ * Expand an IPv6 literal to its eight 16-bit groups, resolving `::` and any
+ * trailing dotted-quad (`::ffff:127.0.0.1`). Returns null for non-IPv6 input.
+ */
+function v6Groups(ip: string): number[] | null {
+  let text = ip;
+  if (!text.includes(":")) return null;
+
+  // A trailing dotted-quad occupies the last two groups.
+  const dotted = /(\d{1,3}(?:\.\d{1,3}){3})$/.exec(text);
+  if (dotted) {
+    const value = v4ToInt(dotted[1]);
+    if (value === null) return null;
+    text = `${text.slice(0, dotted.index)}${(value >>> 16).toString(16)}:${(value & 0xffff).toString(16)}`;
+  }
+
+  const halves = text.split("::");
+  if (halves.length > 2) return null;
+  const parse = (part: string) =>
+    part === "" ? [] : part.split(":").map((group) => (/^[0-9a-f]{1,4}$/.test(group) ? Number.parseInt(group, 16) : NaN));
+
+  const head = parse(halves[0]);
+  const tail = halves.length === 2 ? parse(halves[1]) : [];
+  if ([...head, ...tail].some((group) => Number.isNaN(group))) return null;
+
+  if (halves.length === 2) {
+    const fill = 8 - head.length - tail.length;
+    if (fill < 0) return null;
+    return [...head, ...Array<number>(fill).fill(0), ...tail];
+  }
+  return head.length === 8 ? head : null;
+}
+
+/**
+ * True when a *resolved* IP address falls in a private, loopback, link-local,
+ * multicast or otherwise non-routable range.
+ *
+ * `unsafeUrlReason` only inspects the hostname string; this checks the address a
+ * hostname actually resolves to, which is what defends against DNS rebinding
+ * (a public-looking host answering 127.x / 169.254.x metadata).
+ *
+ * Parsed numerically rather than by regex, because the string forms lie:
+ * `::ffff:7f00:1` and `64:ff9b::7f00:1` are both 127.0.0.1 wearing a hat, and
+ * `0:0:0:0:0:0:0:1` is `::1` written out. Non-IP input falls back to the
+ * hostname patterns, so `localhost` and `*.local` still match.
  */
 export function ipIsPrivate(ip: string): boolean {
-  if (PRIVATE_HOST.some((pattern) => pattern.test(ip))) return true;
-  const v6 = ip.toLowerCase();
-  // Unique-local (fc00::/7), link-local (fe80::/10), and IPv4-mapped loopback.
-  if (/^f[cd][0-9a-f]{2}:/.test(v6)) return true;
-  if (/^fe[89ab][0-9a-f]:/.test(v6)) return true;
-  if (v6.startsWith("::ffff:")) return PRIVATE_HOST.some((p) => p.test(v6.slice(7)));
-  return false;
+  const text = ip.trim().toLowerCase().replace(/^\[|\]$/g, "");
+
+  if (v4ToInt(text) !== null) return v4IsPrivate(text);
+
+  const groups = v6Groups(text);
+  if (groups) {
+    const [g0] = groups;
+
+    if (groups.every((group) => group === 0)) return true; // :: (unspecified)
+    if (groups.slice(0, 7).every((group) => group === 0) && groups[7] === 1) return true; // ::1
+
+    // IPv4-mapped (::ffff:0:0/96) and NAT64 (64:ff9b::/96) both carry a real
+    // IPv4 in the low 32 bits — `::ffff:7f00:1` IS 127.0.0.1.
+    const isV4Mapped = groups.slice(0, 5).every((group) => group === 0) && groups[5] === 0xffff;
+    const isNat64 =
+      g0 === 0x64 && groups[1] === 0xff9b && groups.slice(2, 6).every((group) => group === 0);
+    if (isV4Mapped || isNat64) {
+      const embedded = ((groups[6] << 16) | groups[7]) >>> 0;
+      const asV4 = [embedded >>> 24, (embedded >>> 16) & 255, (embedded >>> 8) & 255, embedded & 255];
+      return v4IsPrivate(asV4.join("."));
+    }
+
+    if ((g0 & 0xfe00) === 0xfc00) return true; // unique-local fc00::/7
+    if ((g0 & 0xffc0) === 0xfe80) return true; // link-local fe80::/10
+    if ((g0 & 0xff00) === 0xff00) return true; // multicast ff00::/8
+    return false;
+  }
+
+  // Not an IP literal — fall back to the hostname patterns (localhost, *.local).
+  return PRIVATE_HOST.some((pattern) => pattern.test(ip));
 }
 
 type LookupAddress = { address: string; family: number };

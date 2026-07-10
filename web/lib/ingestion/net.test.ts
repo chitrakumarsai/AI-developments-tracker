@@ -196,3 +196,106 @@ describe("createSafeLookup (DNS-rebinding guard)", () => {
     expect(err?.message).toMatch(/ENOTFOUND/);
   });
 });
+
+/**
+ * IPv6 and edge-form coverage. Each of these was a real gap in the original
+ * regex-based check: `::ffff:7f00:1` and `64:ff9b::7f00:1` both reach 127.0.0.1.
+ */
+describe("ipIsPrivate — exhaustive address forms", () => {
+  const BLOCKED = [
+    ["127.0.0.1", "IPv4 loopback"],
+    ["127.1.2.3", "IPv4 loopback range"],
+    ["10.0.0.1", "RFC1918"],
+    ["172.16.0.1", "RFC1918"],
+    ["172.31.255.255", "RFC1918 upper"],
+    ["192.168.1.1", "RFC1918"],
+    ["169.254.169.254", "cloud metadata"],
+    ["0.0.0.0", "unspecified v4"],
+    ["0.1.2.3", "0.0.0.0/8"],
+    ["100.64.0.1", "CGNAT 100.64/10"],
+    ["192.0.0.1", "IETF protocol assignments"],
+    ["198.18.0.1", "benchmark 198.18/15"],
+    ["224.0.0.1", "multicast"],
+    ["255.255.255.255", "broadcast"],
+    ["::1", "IPv6 loopback"],
+    ["0:0:0:0:0:0:0:1", "IPv6 loopback, expanded"],
+    ["::", "IPv6 unspecified"],
+    ["0:0:0:0:0:0:0:0", "IPv6 unspecified, expanded"],
+    ["::ffff:127.0.0.1", "v4-mapped loopback, dotted"],
+    ["::ffff:7f00:1", "v4-mapped loopback, hex"],
+    ["::ffff:a00:1", "v4-mapped 10.0.0.1, hex"],
+    ["64:ff9b::7f00:1", "NAT64 loopback, hex"],
+    ["64:ff9b::127.0.0.1", "NAT64 loopback, dotted"],
+    ["64:ff9b::a9fe:a9fe", "NAT64 cloud metadata"],
+    ["fc00::1", "unique-local fc00::/7"],
+    ["fd12:3456::1", "unique-local fd"],
+    ["fe80::1", "link-local fe80::/10"],
+    ["febf::1", "link-local upper"],
+    ["ff02::1", "IPv6 multicast"],
+    ["FE80::1", "uppercase link-local"],
+  ] as const;
+
+  const ALLOWED = [
+    ["8.8.8.8", "public DNS"],
+    ["93.184.216.34", "example.com"],
+    ["1.1.1.1", "public"],
+    ["172.32.0.1", "just outside RFC1918"],
+    ["172.15.0.1", "just below RFC1918"],
+    ["100.63.255.255", "just below CGNAT"],
+    ["100.128.0.1", "just above CGNAT"],
+    ["2606:4700::1111", "public IPv6"],
+    ["2001:4860:4860::8888", "public IPv6"],
+    ["::ffff:8.8.8.8", "v4-mapped public"],
+    ["64:ff9b::8.8.8.8", "NAT64 public"],
+    ["fb00::1", "just below fc00::/7"],
+    ["fe7f::1", "just below fe80::/10"],
+    ["fec0::1", "just above fe80::/10 (site-local, deprecated)"],
+  ] as const;
+
+  it.each(BLOCKED)("blocks %s (%s)", (ip) => {
+    expect(ipIsPrivate(ip)).toBe(true);
+  });
+
+  it.each(ALLOWED)("allows %s (%s)", (ip) => {
+    expect(ipIsPrivate(ip)).toBe(false);
+  });
+
+  it("still recognises the hostname forms the URL guard relies on", () => {
+    expect(ipIsPrivate("localhost")).toBe(true);
+    expect(ipIsPrivate("printer.local")).toBe(true);
+    expect(ipIsPrivate("example.com")).toBe(false);
+  });
+
+  it("does not crash on garbage", () => {
+    for (const junk of ["", "not-an-ip", ":::", "999.999.999.999", "::ffff:zz"]) {
+      expect(() => ipIsPrivate(junk)).not.toThrow();
+    }
+  });
+});
+
+describe("unsafeUrlReason — IP literals in the URL", () => {
+  // undici performs NO DNS lookup for an IP literal, so the rebinding guard
+  // never sees these. They must be refused here or not at all.
+  it.each([
+    "http://[::1]/",
+    "http://[::ffff:127.0.0.1]/",
+    "http://[::ffff:7f00:1]/",
+    "http://[64:ff9b::7f00:1]/",
+    "http://[fd00::1]/",
+    "http://[fe80::1]/",
+    "http://127.0.0.1/",
+    "http://100.64.0.1/",
+    "http://169.254.169.254/latest/meta-data/",
+    "http://0.0.0.0/",
+  ])("blocks %s", (url) => {
+    expect(unsafeUrlReason(url)).not.toBeNull();
+  });
+
+  it.each([
+    "https://example.com/feed",
+    "https://[2606:4700::1111]/",
+    "https://8.8.8.8/",
+  ])("allows %s", (url) => {
+    expect(unsafeUrlReason(url)).toBeNull();
+  });
+});
