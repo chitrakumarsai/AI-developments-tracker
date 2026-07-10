@@ -365,8 +365,15 @@ export default async function Home({
             current={currentFilters}
             hasActiveFilters={hasActiveFilters}
           />
-          <div className="-mx-[var(--space-gutter)] mt-4 overflow-x-auto px-[var(--space-gutter)] lg:mx-0 lg:px-0">
-            <div className="flex w-max items-center gap-x-5 gap-y-3 lg:w-auto lg:flex-wrap">
+          {/*
+            The filter bar must NOT establish a scroll container: the source
+            picker's listbox is absolutely positioned, and `overflow-x: auto`
+            makes overflow-y compute to `auto` too (CSS Overflow §3), which
+            clips the popup away. So the groups wrap onto extra rows on narrow
+            screens instead of scrolling sideways.
+          */}
+          <div className="mt-4">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
               <FilterGroup
                 label="Window"
                 options={WINDOW_OPTIONS.map((option) => ({

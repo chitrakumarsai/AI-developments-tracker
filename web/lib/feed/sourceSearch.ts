@@ -41,3 +41,22 @@ export function filterSources<T extends SearchableSource>(
     return tokens.every((token) => haystack.includes(token));
   });
 }
+
+/** The sentinel option that clears the source filter. An empty id = "no filter". */
+export const ALL_SOURCES: SearchableSource = { id: "", name: "All sources" };
+
+/**
+ * The options the picker should show for a given query.
+ *
+ * "All sources" is a *clear-the-filter* action, not a search result, so it
+ * leads the list only while the query is empty. Once the user types, it drops
+ * out — otherwise it would sit at the top as the highlighted option and Enter
+ * would clear the filter instead of choosing the first match.
+ */
+export function pickerOptions<T extends SearchableSource>(
+  sources: readonly T[],
+  query: string,
+): SearchableSource[] {
+  const matches = filterSources(sources, query);
+  return normalize(query) ? matches : [ALL_SOURCES, ...matches];
+}

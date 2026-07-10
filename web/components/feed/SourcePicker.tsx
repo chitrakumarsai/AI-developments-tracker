@@ -4,7 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { sourceFilterHref, type FeedHrefParams } from "@/lib/feed/filterHref";
-import { filterSources } from "@/lib/feed/sourceSearch";
+import { ALL_SOURCES, pickerOptions } from "@/lib/feed/sourceSearch";
 
 /** A `{ id, name }` option — mirrors `SourceOption` without the server-only import. */
 export type SourcePickerOption = { id: string; name: string };
@@ -17,9 +17,6 @@ type SourcePickerProps = {
   /** The currently-selected source id, if the feed is source-filtered. */
   activeSource?: string | null;
 };
-
-/** The sentinel option that clears the source filter. Empty id = "no filter". */
-const ALL_SOURCES: SourcePickerOption = { id: "", name: "All sources" };
 
 /**
  * Feed source-picker (v4 findability; searchable in v5): jump straight to a
@@ -53,10 +50,7 @@ export function SourcePicker({ sources, current, activeSource }: SourcePickerPro
   const activeName =
     sources.find((source) => source.id === activeSource)?.name ?? ALL_SOURCES.name;
 
-  const options = useMemo(
-    () => [ALL_SOURCES, ...filterSources(sources, query ?? "")],
-    [sources, query],
-  );
+  const options = useMemo(() => pickerOptions(sources, query ?? ""), [sources, query]);
 
   // Close when focus or a pointer lands outside the widget. `pointerdown` fires
   // before the option's click, so re-check the target rather than closing blind.

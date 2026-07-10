@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { filterSources } from "./sourceSearch";
+import { filterSources, pickerOptions } from "./sourceSearch";
 
 /** A slice of the real catalog — prefixed names are the norm (24 active sources). */
 const SOURCES = [
@@ -63,5 +63,31 @@ describe("filterSources", () => {
     expect(filterSources(SOURCES, "a").map((s) => s.id)).toEqual(
       SOURCES.filter((s) => s.name.toLowerCase().includes("a")).map((s) => s.id),
     );
+  });
+});
+
+describe("pickerOptions", () => {
+  it("leads with 'All sources' when the query is empty", () => {
+    const options = pickerOptions(SOURCES, "");
+    expect(options[0]).toEqual({ id: "", name: "All sources" });
+    expect(options).toHaveLength(SOURCES.length + 1);
+  });
+
+  it("treats a whitespace-only query as empty", () => {
+    expect(pickerOptions(SOURCES, "  ")[0]?.id).toBe("");
+  });
+
+  it("drops 'All sources' once the user types, so Enter picks the first match", () => {
+    // Regression: "All sources" is a clear-the-filter action, not a result. If
+    // it survived a query it would sit at index 0 as the highlighted option,
+    // and typing "arxiv" + Enter would CLEAR the filter instead of selecting
+    // arXiv — cs.AI.
+    const options = pickerOptions(SOURCES, "arxiv");
+    expect(options.map((o) => o.id)).toEqual(["1", "2", "3"]);
+    expect(options[0]?.name).toBe("arXiv — cs.AI");
+  });
+
+  it("returns nothing at all when a query matches no source", () => {
+    expect(pickerOptions(SOURCES, "zzzz")).toEqual([]);
   });
 });
