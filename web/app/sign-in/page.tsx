@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { LogoMark } from "@/components/brand/Logo";
+
 import { getSessionUser } from "@/lib/auth/session";
 import { safeRedirectPath } from "@/lib/auth/redirect";
 import { signInAction } from "./actions";
@@ -44,11 +46,15 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
       <div className="mb-8 text-center">
         <Link
           href="/"
-          className="font-display text-2xl font-semibold tracking-tight text-ink"
+          className="inline-flex flex-col items-center gap-3 no-underline"
+          aria-label="The AI Chronicles — home"
         >
-          <span className="text-accent">✦</span> The AI Chronicles
+          <LogoMark size={56} />
+          <span className="font-display text-2xl font-semibold tracking-tight text-ink">
+            The AI Chronicles
+          </span>
         </Link>
-        <p className="mt-2 text-sm text-muted">
+        <p className="mt-3 text-sm text-muted">
           Sign in or create an account to unlock the full radar — the top-rated,
           personalized feed, filters, likes, and saved views.
         </p>

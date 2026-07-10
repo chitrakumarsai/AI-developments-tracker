@@ -24,6 +24,7 @@ import { SourcePicker } from "@/components/feed/SourcePicker";
 import { MyViews } from "@/components/feed/MyViews";
 import { WelcomeBanner } from "@/components/feed/WelcomeBanner";
 import { LogoMark } from "@/components/brand/Logo";
+import { LoadingOrb } from "@/components/brand/LoadingOrb";
 import { listSourceOptions, type SourceOption } from "@/lib/sources/persist";
 import { AuthStatus } from "@/components/auth/AuthStatus";
 import { getSessionUser } from "@/lib/auth/session";
@@ -66,8 +67,8 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 function FeedFallback() {
   return (
-    <div className="py-[var(--space-section)] text-center text-sm text-muted">
-      Loading the feed…
+    <div className="py-[var(--space-section)]">
+      <LoadingOrb label="Loading the feed…" />
     </div>
   );
 }
