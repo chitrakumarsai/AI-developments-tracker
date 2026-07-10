@@ -34,18 +34,41 @@ const HOST_MAP: ReadonlyArray<readonly [suffix: string, label: string, slug: str
 ];
 
 /**
- * The curated platforms offered in the feed's platform picker — the same set
- * `platformForItem` recognises, so a chip's slug always matches item slugs.
+ * Which recognised platforms get a chip in the feed's platform picker.
+ *
+ * Display and validity are deliberately separate concerns. Reddit is a
+ * recognised platform — `?platform=reddit` still filters, and saved views that
+ * stored it keep working — it just isn't *offered* as a chip (v5): each
+ * subreddit is its own catalogued source, so the source filter already covers
+ * it at finer grain and a Reddit chip would only duplicate it.
  */
-export const CURATED_PLATFORMS: ReadonlyArray<Platform> = HOST_MAP.map(
-  ([, label, slug]) => ({ label, slug }),
-);
+const PICKER_SLUGS: ReadonlySet<string> = new Set([
+  "github",
+  "hugging-face",
+  "hacker-news",
+  "arxiv",
+]);
 
-const CURATED_SLUGS: ReadonlySet<string> = new Set(CURATED_PLATFORMS.map((p) => p.slug));
+/**
+ * The platforms offered in the picker, derived from `HOST_MAP` so a chip's
+ * label and slug can never drift from the ones `platformForItem` resolves.
+ */
+export const CURATED_PLATFORMS: ReadonlyArray<Platform> = HOST_MAP.filter(
+  ([, , slug]) => PICKER_SLUGS.has(slug),
+).map(([, label, slug]) => ({ label, slug }));
 
-/** True when a slug is one of the curated platform filters (guards URL input). */
-export function isCuratedPlatform(slug: string): boolean {
-  return CURATED_SLUGS.has(slug);
+const KNOWN_SLUGS: ReadonlySet<string> = new Set(HOST_MAP.map(([, , slug]) => slug));
+
+/**
+ * True when a slug names a platform this app can resolve — the guard for
+ * untrusted `?platform=` input and for `saved_views.filters.platform`.
+ *
+ * Intentionally broader than `CURATED_PLATFORMS`: a platform that has left the
+ * picker (Reddit) must still validate, or a saved view or shared link that
+ * stored it would silently lose its filter.
+ */
+export function isKnownPlatform(slug: string): boolean {
+  return KNOWN_SLUGS.has(slug);
 }
 
 /** Title-case a bare domain label, e.g. "nvidia" → "Nvidia", "openai" → "Openai". */

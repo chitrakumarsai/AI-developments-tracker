@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { ASK_SECTION_SLUG } from "@/lib/feed/categories";
 import { feedHref } from "@/lib/feed/filterHref";
 
 /**
@@ -27,7 +28,7 @@ export function ViewActions({ productId }: { productId: string }) {
       const json = (await res.json()) as { success: boolean; error?: string };
       if (!res.ok || !json.success) throw new Error(json.error ?? `Failed (${res.status})`);
       if (kind === "delete") {
-        router.push(`${feedHref({ section: "products" })}&view=mine`);
+        router.push(feedHref({ section: ASK_SECTION_SLUG }));
       } else {
         router.refresh();
       }

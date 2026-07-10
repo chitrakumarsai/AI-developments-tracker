@@ -8,7 +8,7 @@ import {
   MAX_FEED_LIMIT,
   type FeedSort,
 } from "@/lib/feed/queries";
-import { categoryForSlug } from "@/lib/feed/categories";
+import { categoriesForSlug, categoryForSlug } from "@/lib/feed/categories";
 import { getSessionUser } from "@/lib/auth/session";
 import { createServerSupabaseClient } from "@/lib/supabase/ssr";
 
@@ -51,6 +51,11 @@ export async function GET(request: Request) {
 
   try {
     const category = categoryForSlug(parsed.data.section);
+    // Multi-category sections (the More catch-all, and the legacy `products`
+    // slug that now aliases to it) carry `categories` instead of a single
+    // `category`. Without this the route would silently return the *whole*
+    // feed for `?section=more`.
+    const categories = categoriesForSlug(parsed.data.section);
     const sort: FeedSort = parsed.data.sort === "stars" ? "metric" : parsed.data.sort;
     // Personalize to the signed-in caller (2.2), via the auth-aware client (RLS
     // scopes per-user rows to auth.uid()), never service-role.
@@ -58,6 +63,7 @@ export async function GET(request: Request) {
     const items = await getFeedItems(
       {
         category,
+        categories: categories ?? undefined,
         sort,
         window: parsed.data.window,
         limit: parsed.data.limit,
