@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { ImageResponse } from "next/og";
 
 import { SITE_NAME, SITE_TAGLINE } from "@/lib/seo/site";
@@ -8,12 +11,20 @@ export const alt = `${SITE_NAME} — ${SITE_TAGLINE}`;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const INK = "#141414";
-const PAPER = "#f7f4ee";
-const ACCENT = "#c2410c";
-const MUTED = "#6b6b6b";
+// Brand palette lifted from the logo.
+const INK = "#0d1b2e";
+const PAPER = "#f8fafc";
+const BLUE = "#1f83e6";
+const TEAL = "#22c3a1";
+const MUTED = "#5a6b7a";
 
 export default function OpengraphImage() {
+  // Read from the public dir at prerender time and embed as a data URI, so the
+  // card needs no network fetch. This route prerenders, so cwd is the app root.
+  const markSrc = `data:image/png;base64,${readFileSync(
+    join(process.cwd(), "public", "brand", "logo-mark.png"),
+  ).toString("base64")}`;
+
   return new ImageResponse(
     (
       <div
@@ -28,25 +39,12 @@ export default function OpengraphImage() {
           fontFamily: "sans-serif",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            fontSize: 34,
-            fontWeight: 600,
-            color: INK,
-          }}
-        >
-          <span
-            style={{
-              width: 20,
-              height: 20,
-              borderRadius: 6,
-              background: ACCENT,
-              marginRight: 16,
-            }}
-          />
-          {SITE_NAME}
+        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={markSrc} width={104} height={97} alt="" />
+          <span style={{ fontSize: 34, fontWeight: 600, color: INK }}>
+            {SITE_NAME}
+          </span>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column" }}>
@@ -67,16 +65,25 @@ export default function OpengraphImage() {
           </div>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            fontSize: 26,
-            color: ACCENT,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-          }}
-        >
-          theaichronicles.ai
+        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+          <div
+            style={{
+              width: 120,
+              height: 8,
+              borderRadius: 9999,
+              background: `linear-gradient(90deg, ${BLUE}, ${TEAL})`,
+            }}
+          />
+          <span
+            style={{
+              fontSize: 26,
+              color: TEAL,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+            }}
+          >
+            theaichronicles.ai
+          </span>
         </div>
       </div>
     ),

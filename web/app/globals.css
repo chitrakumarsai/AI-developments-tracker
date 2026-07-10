@@ -250,6 +250,25 @@ body {
   }
 }
 
+/* Branded loading orb — the logo's gradient dot, gently breathing. */
+.brand-orb {
+  border-radius: 9999px;
+  background: var(--gradient-ai);
+  animation: brand-pulse 1.6s var(--ease-out-expo) infinite;
+}
+
+@keyframes brand-pulse {
+  0%,
+  100% {
+    transform: scale(0.82);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   /*
    * The global rule above clamps animation-duration to 0.01ms, which would turn
@@ -260,5 +279,12 @@ body {
   .ai-working::before {
     animation: none !important;
     opacity: 0;
+  }
+
+  /* Freeze the orb full-size and solid rather than mid-pulse. */
+  .brand-orb {
+    animation: none !important;
+    transform: none;
+    opacity: 1;
   }
 }
