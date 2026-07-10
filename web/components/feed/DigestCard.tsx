@@ -1,4 +1,5 @@
 import { getFeedItems } from "@/lib/feed/queries";
+import { AiBadge } from "@/components/ui/AiBadge";
 import { getDigest } from "@/lib/digest/digest";
 import { parseDigest } from "@/lib/digest/parse";
 import { createServerSupabaseClient } from "@/lib/supabase/ssr";
@@ -35,10 +36,13 @@ export async function DigestCard({ period }: { period: DigestPeriod }) {
   if (blocks.length === 0) return null;
 
   return (
-    <details className="mt-4 rounded-[var(--radius-md)] border border-rule bg-rule/20 px-4 py-3" open>
-      <summary className="cursor-pointer list-none text-sm font-medium text-ink">
-        <span className="text-accent">✦</span> {PERIOD_LABEL[period]}
-        <span className="ml-2 font-normal text-faint">· AI-summarized</span>
+    <details
+      className="mt-4 rounded-[var(--radius-lg)] border border-ai-border bg-ai-soft px-4 py-3 shadow-card"
+      open
+    >
+      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 text-sm font-medium text-ink">
+        <AiBadge />
+        {PERIOD_LABEL[period]}
       </summary>
       <div className="mt-3 flex flex-col gap-3">
         {blocks.map((block, b) => (

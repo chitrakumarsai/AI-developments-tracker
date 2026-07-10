@@ -160,16 +160,16 @@ export function SourcePicker({ sources, current, activeSource }: SourcePickerPro
           }}
           onFocus={open}
           onKeyDown={onKeyDown}
-          className={`min-h-[38px] w-[12rem] cursor-pointer truncate rounded-[var(--radius-md)] border pl-2.5 pr-7 text-xs font-medium transition-colors placeholder:font-normal placeholder:text-faint focus:outline-none ${
+          className={`min-h-[40px] w-[12rem] cursor-pointer truncate rounded-[var(--radius-md)] border pl-2.5 pr-7 text-xs font-medium transition-colors placeholder:font-normal placeholder:text-faint focus:outline-none ${
             isActive && !isOpen
-              ? "border-ink bg-ink text-surface placeholder:text-surface/60"
-              : "border-rule bg-surface text-ink hover:border-ink"
+              ? "border-accent bg-accent-soft text-accent"
+              : "border-rule bg-surface text-ink hover:border-muted"
           }`}
         />
         <span
           aria-hidden
           className={`pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[0.65rem] ${
-            isActive && !isOpen ? "text-surface" : "text-muted"
+            isActive && !isOpen ? "text-accent" : "text-muted"
           }`}
         >
           ▾
@@ -181,7 +181,7 @@ export function SourcePicker({ sources, current, activeSource }: SourcePickerPro
             id={listboxId}
             role="listbox"
             aria-label="Sources"
-            className="absolute left-0 top-[calc(100%+4px)] z-20 max-h-72 w-[16rem] overflow-y-auto rounded-[var(--radius-md)] border border-rule bg-surface py-1 shadow-lg"
+            className="absolute left-0 top-[calc(100%+6px)] z-20 max-h-72 w-[16rem] overflow-y-auto rounded-[var(--radius-lg)] border border-rule bg-surface py-1 shadow-popover"
           >
             {options.length === 0 ? (
               <li className="px-3 py-2 text-xs text-muted">No sources match.</li>
@@ -199,9 +199,9 @@ export function SourcePicker({ sources, current, activeSource }: SourcePickerPro
                     onPointerDown={(event) => event.preventDefault()}
                     onClick={() => choose(option)}
                     onMouseEnter={() => setHighlight(index)}
-                    className={`flex min-h-[44px] cursor-pointer items-center px-3 text-xs transition-colors ${
-                      isHighlighted ? "bg-rule/50 text-ink" : "text-muted"
-                    } ${isSelected ? "font-semibold text-ink" : ""}`}
+                    className={`mx-1 flex min-h-[44px] cursor-pointer items-center rounded-[var(--radius-sm)] px-2 text-xs transition-colors ${
+                      isHighlighted ? "bg-sunken text-ink" : "text-muted"
+                    } ${isSelected ? "font-semibold text-accent" : ""}`}
                   >
                     {option.name}
                   </li>

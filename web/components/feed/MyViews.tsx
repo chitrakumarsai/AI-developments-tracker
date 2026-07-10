@@ -8,6 +8,7 @@ import {
   type ProductSummary,
   type ProductWithItems,
 } from "@/lib/products/persist";
+import { AiBadge } from "@/components/ui/AiBadge";
 import { ASK_SECTION_SLUG } from "@/lib/feed/categories";
 import { feedHref } from "@/lib/feed/filterHref";
 import { ItemCard } from "./ItemCard";
@@ -63,6 +64,12 @@ export async function MyViews({ productId }: { productId?: string }) {
           <div className="min-w-0">
             <h2 className="font-display text-xl font-semibold text-ink">{product.title}</h2>
             <p className="mt-1 text-sm text-muted">{product.prompt}</p>
+            {/* These items were retrieved by embedding similarity and ordered
+                by a gpt-4o-mini reranker — the badge says so. */}
+            <p className="mt-2 flex items-center gap-2 text-xs text-faint">
+              <AiBadge label="AI-ranked" />
+              matched against everything you&rsquo;ve ingested
+            </p>
           </div>
           <ViewActions productId={product.id} />
         </div>
@@ -72,7 +79,7 @@ export async function MyViews({ productId }: { productId?: string }) {
             body="Nothing in the corpus matched this prompt. Try Refresh after more items are ingested, or refine the prompt in a new view."
           />
         ) : (
-          <ul className="grid grid-cols-1 gap-x-10 pt-4 lg:grid-cols-2 2xl:grid-cols-3">
+          <ul className="grid grid-cols-1 gap-4 pt-4 lg:grid-cols-2 2xl:grid-cols-3">
             {product.items.map((item) => (
               <li key={item.id}>
                 {/*
@@ -101,9 +108,12 @@ export async function MyViews({ productId }: { productId?: string }) {
   return (
     <section aria-label="Ask" className="flex flex-1 flex-col pt-4">
       <div className="border-b border-rule pb-4">
-        <h2 className="font-display text-lg font-semibold text-ink">
-          Ask for what you want to track
-        </h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="font-display text-lg font-semibold text-ink">
+            Ask for what you want to track
+          </h2>
+          <AiBadge />
+        </div>
         <p className="mt-1 max-w-xl text-sm leading-relaxed text-muted">
           Describe a topic in plain English. We search everything you&rsquo;ve ingested —
           papers, repos, models, posts — and save the matches as a view you can reopen

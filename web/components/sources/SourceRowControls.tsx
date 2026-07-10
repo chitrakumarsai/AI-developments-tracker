@@ -217,7 +217,7 @@ export function SourceRowControls({ source }: SourceRowControlsProps) {
             <button
               type="submit"
               disabled={busy || !name.trim()}
-              className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] bg-ink px-4 text-sm font-medium text-surface transition-colors hover:bg-accent disabled:opacity-50"
+              className="inline-flex min-h-[44px] items-center rounded-[var(--radius-md)] bg-accent px-4 text-sm font-medium text-accent-ink shadow-card transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {busy ? "Saving…" : "Save"}
             </button>

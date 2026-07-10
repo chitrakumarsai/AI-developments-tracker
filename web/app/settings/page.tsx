@@ -29,13 +29,13 @@ export default async function SettingsPage() {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-[var(--space-gutter)] lg:max-w-none lg:px-[clamp(2rem,4vw,4rem)]">
       <header className="border-b border-rule py-6">
-        <div className="flex items-baseline justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">
             Settings
           </h1>
           <Link
             href="/feed"
-            className="text-xs uppercase tracking-[0.18em] text-muted transition-colors hover:text-ink"
+            className="inline-flex min-h-[36px] items-center rounded-[var(--radius-md)] border border-rule bg-surface px-3 text-sm text-muted shadow-card transition-colors hover:border-muted hover:text-ink"
           >
             ← Feed
           </Link>
@@ -51,7 +51,9 @@ export default async function SettingsPage() {
             Could not reach the database. Make sure Supabase is configured.
           </p>
         ) : (
-          <SettingsForm initial={settings} />
+          <div className="rounded-[var(--radius-lg)] border border-rule bg-surface p-[var(--space-card)] shadow-card">
+            <SettingsForm initial={settings} />
+          </div>
         )}
       </main>
 

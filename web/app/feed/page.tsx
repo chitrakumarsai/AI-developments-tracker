@@ -215,26 +215,45 @@ export default async function Home({
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-[var(--space-gutter)] lg:max-w-none lg:px-[clamp(2rem,4vw,4rem)]">
-      <header className="border-b border-rule py-6">
-        <div className="flex items-baseline justify-between">
-          <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">
-            AI Chronicles
-          </h1>
-          <div className="flex items-baseline gap-4 text-xs uppercase tracking-[0.18em]">
-            <span className="hidden text-faint sm:inline">Find the signal in AI</span>
-            <Link href="/sources" className="text-muted transition-colors hover:text-ink">
+      {/*
+        Three distinct zones, separated by rules rather than crammed together:
+        (1) identity + account, (2) primary category navigation, (3) the filter
+        bar below. Platform used to sit here as a third nav row, but it is a
+        *filter*, not navigation — it now lives with Window/Source/Sort/Show.
+      */}
+      <header className="border-b border-rule">
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 py-5">
+          <div>
+            <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">
+              AI Chronicles
+            </h1>
+            <p className="mt-0.5 text-xs text-faint">Find the signal in AI</p>
+          </div>
+          <nav aria-label="Account" className="flex items-center gap-1 text-sm">
+            <Link
+              href="/sources"
+              className="rounded-[var(--radius-sm)] px-2.5 py-1.5 text-muted transition-colors hover:bg-sunken hover:text-ink"
+            >
               Sources
             </Link>
-            <Link href="/settings" className="text-muted transition-colors hover:text-ink">
+            <Link
+              href="/settings"
+              className="rounded-[var(--radius-sm)] px-2.5 py-1.5 text-muted transition-colors hover:bg-sunken hover:text-ink"
+            >
               Settings
             </Link>
+            <span aria-hidden className="mx-1 h-4 w-px bg-rule" />
             <AuthStatus />
-          </div>
+          </nav>
         </div>
-        <nav aria-label="Categories" className="mt-4 -mx-1 overflow-x-auto">
-          <ul className="flex gap-1">
+
+        <nav aria-label="Categories" className="-mx-1 pb-px">
+          <ul className="flex gap-0.5 overflow-x-auto">
             {FEED_SECTIONS.map((section) => {
               const isActive = section.slug === active.slug;
+              // The Ask tab is the one LLM-backed destination in this nav, so it
+              // carries the AI gradient (and shimmers once on hover/focus).
+              const isAi = section.isPrompt === true;
               return (
                 <li key={section.slug}>
                   <Link
@@ -249,67 +268,20 @@ export default async function Home({
                       state,
                     })}
                     aria-current={isActive ? "page" : undefined}
-                    className={`inline-block rounded-[var(--radius-sm)] px-3 py-1.5 text-sm transition-colors ${
+                    className={`relative inline-flex min-h-[42px] items-center gap-1.5 whitespace-nowrap rounded-t-[var(--radius-sm)] px-3 text-sm font-medium transition-colors after:absolute after:inset-x-2 after:bottom-0 after:h-[2px] after:rounded-full after:transition-colors ${
                       isActive
-                        ? "bg-ink text-surface"
-                        : "text-muted hover:text-ink hover:bg-rule/40"
-                    }`}
+                        ? "text-ink after:bg-accent"
+                        : "text-muted after:bg-transparent hover:text-ink hover:after:bg-rule"
+                    } ${isAi ? "ai-surface" : ""}`}
                   >
-                    {section.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-        <nav aria-label="Platform" className="mt-2 -mx-1 overflow-x-auto">
-          <ul className="flex items-center gap-1 text-xs">
-            <li className="pl-1 pr-1 text-faint">Platform</li>
-            <li>
-              <Link
-                href={feedHref({
-                  section: active.slug,
-                  sort,
-                  window,
-                  source,
-                  platform: null,
-                  tag,
-                  q,
-                  state,
-                })}
-                aria-current={!platform ? "true" : undefined}
-                className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] px-2.5 font-medium transition-colors ${
-                  !platform
-                    ? "bg-ink text-surface"
-                    : "text-muted hover:text-ink hover:bg-rule/40"
-                }`}
-              >
-                All
-              </Link>
-            </li>
-            {CURATED_PLATFORMS.map((p) => {
-              const isActive = platform === p.slug;
-              return (
-                <li key={p.slug}>
-                  <Link
-                    href={feedHref({
-                      section: active.slug,
-                      sort,
-                      window,
-                      source,
-                      platform: p.slug,
-                      tag,
-                      q,
-                      state,
-                    })}
-                    aria-current={isActive ? "true" : undefined}
-                    className={`inline-flex min-h-[36px] items-center whitespace-nowrap rounded-[var(--radius-sm)] px-2.5 font-medium transition-colors ${
-                      isActive
-                        ? "bg-ink text-surface"
-                        : "text-muted hover:text-ink hover:bg-rule/40"
-                    }`}
-                  >
-                    {p.label}
+                    {isAi ? (
+                      <span aria-hidden className="text-[0.7rem] text-ai-to">
+                        &#10022;
+                      </span>
+                    ) : null}
+                    <span className={isAi && !isActive ? "ai-text" : undefined}>
+                      {section.label}
+                    </span>
                   </Link>
                 </li>
               );
@@ -351,11 +323,11 @@ export default async function Home({
               placeholder="Search titles & summaries…"
               aria-label="Search the feed"
               maxLength={MAX_SEARCH_LENGTH}
-              className="min-h-[44px] w-full flex-1 rounded-[var(--radius-sm)] border border-rule bg-transparent px-3 text-sm text-ink placeholder:text-faint focus:border-accent"
+              className="min-h-[44px] w-full flex-1 rounded-[var(--radius-md)] border border-rule bg-sunken px-3 text-sm text-ink placeholder:text-faint focus:border-accent focus:bg-surface"
             />
             <button
               type="submit"
-              className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] bg-ink px-4 text-sm font-medium text-surface transition-colors hover:bg-accent"
+              className="inline-flex min-h-[44px] items-center rounded-[var(--radius-md)] bg-accent px-4 text-sm font-medium text-accent-ink shadow-card transition-opacity hover:opacity-90"
             >
               Search
             </button>
@@ -396,6 +368,28 @@ export default async function Home({
                 sources={sourceOptions}
                 current={feedContext}
                 activeSource={source}
+              />
+              {/* Platform is a filter, so it lives here — not as a nav row. */}
+              <FilterGroup
+                label="Platform"
+                options={[
+                  { slug: null, label: "All" },
+                  ...CURATED_PLATFORMS.map((p) => ({ slug: p.slug as string | null, label: p.label })),
+                ].map((p) => ({
+                  key: p.slug ?? "all",
+                  label: p.label,
+                  isActive: (platform ?? null) === p.slug,
+                  href: feedHref({
+                    section: active.slug,
+                    sort,
+                    window,
+                    source,
+                    platform: p.slug,
+                    tag,
+                    q,
+                    state,
+                  }),
+                }))}
               />
               <FilterGroup
                 label="Sort"

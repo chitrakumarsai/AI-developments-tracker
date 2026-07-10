@@ -70,7 +70,7 @@ export function SavedViewsBar({ views, current, hasActiveFilters }: SavedViewsBa
       {views.map((view) => (
         <span
           key={view.id}
-          className="inline-flex items-center overflow-hidden rounded-full bg-rule/50"
+          className="inline-flex items-center overflow-hidden rounded-full bg-sunken"
         >
           <Link
             href={viewToHref(view.filters)}

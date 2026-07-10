@@ -62,13 +62,13 @@ export function ItemCard({ item, context = {} }: ItemCardProps) {
   const metric = item.metric != null ? metricMeta(platform.slug, item.category) : null;
   const tags = item.tags?.slice(0, MAX_TAG_CHIPS) ?? [];
   return (
-    <article className="border-b border-rule py-5">
+    <article className="group flex h-full flex-col rounded-[var(--radius-lg)] border border-rule bg-surface p-[var(--space-card)] shadow-card transition-shadow duration-[var(--duration-fast)] hover:shadow-raised">
       <div className="flex items-center justify-between gap-3">
-        <p className="flex min-w-0 items-center gap-2 text-xs uppercase tracking-[0.18em] text-accent">
+        <p className="flex min-w-0 items-center gap-2 text-xs">
           <Link
             href={feedHref({ ...context, source: item.source_id, show: null })}
             aria-label={`Show only ${platform.label} items`}
-            className="inline-flex shrink-0 items-center rounded-[var(--radius-sm)] bg-accent/10 px-1.5 py-0.5 font-semibold not-italic tracking-normal text-accent transition-colors hover:bg-accent/20"
+            className="inline-flex shrink-0 items-center rounded-[var(--radius-pill)] bg-accent-soft px-2 py-0.5 font-semibold text-accent transition-colors hover:bg-accent hover:text-accent-ink"
           >
             {platform.label}
           </Link>
@@ -76,7 +76,7 @@ export function ItemCard({ item, context = {} }: ItemCardProps) {
         </p>
         {item.metric != null && metric ? (
           <span
-            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rule/50 px-2 py-0.5 text-xs font-medium text-muted"
+            className="inline-flex shrink-0 items-center gap-1 rounded-[var(--radius-pill)] bg-sunken px-2 py-0.5 text-xs font-medium text-muted"
             aria-label={`${METRIC_NUMBER.format(item.metric)} ${metric.label}`}
           >
             <span aria-hidden="true" className="text-accent">
@@ -100,13 +100,13 @@ export function ItemCard({ item, context = {} }: ItemCardProps) {
       {item.summary ? <Abstract text={item.summary} /> : null}
 
       {tags.length > 0 ? (
-        <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Tags">
+        <ul className="mb-3 mt-3 flex flex-wrap gap-1.5" aria-label="Tags">
           {tags.map((tag) => (
             <li key={tag}>
               <Link
                 href={feedHref({ ...context, tag, show: null })}
                 aria-label={`Show only items tagged ${tag}`}
-                className="inline-flex min-h-[36px] items-center rounded-full bg-rule/50 px-2.5 text-xs font-medium text-muted transition-colors hover:bg-accent/10 hover:text-accent"
+                className="inline-flex min-h-[36px] items-center rounded-[var(--radius-pill)] bg-sunken px-2.5 text-xs font-medium text-muted transition-colors hover:bg-accent-soft hover:text-accent"
               >
                 #{tag}
               </Link>
@@ -115,7 +115,7 @@ export function ItemCard({ item, context = {} }: ItemCardProps) {
         </ul>
       ) : null}
 
-      <div className="mt-3 flex items-center justify-between text-xs text-faint">
+      <div className="mt-auto flex items-center justify-between border-t border-rule pt-3 text-xs text-faint">
         <span className="truncate pr-3">
           {item.author ?? "Unknown"}
           {item.published_at ? (

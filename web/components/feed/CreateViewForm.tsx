@@ -77,15 +77,26 @@ export function CreateViewForm() {
         className={`${field} py-2 leading-relaxed`}
       />
       <div className="flex items-center gap-3">
+        {/*
+          This button runs the model (embed → pgvector retrieve → gpt-4o-mini
+          rerank), so it carries the AI gradient. The shimmer sweeps once on
+          hover, and loops via `ai-working` only while the request is in flight
+          — there it is a real progress signal, not decoration.
+        */}
         <button
           type="submit"
           disabled={busy || !title.trim() || !prompt.trim()}
-          className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] bg-ink px-4 text-sm font-medium text-surface transition-colors hover:bg-accent disabled:opacity-50"
+          aria-busy={busy}
+          className={`ai-surface inline-flex min-h-[44px] items-center gap-2 rounded-[var(--radius-md)] px-4 text-sm font-medium text-accent-ink shadow-card transition-opacity hover:opacity-95 disabled:opacity-50 ${
+            busy ? "ai-working" : ""
+          }`}
+          style={{ backgroundImage: "var(--gradient-ai)" }}
         >
+          <span aria-hidden>&#10022;</span>
           {busy ? "Searching…" : "Create view"}
         </button>
         {error ? (
-          <span role="alert" className="text-xs text-red-600">
+          <span role="alert" className="text-xs text-danger">
             {error}
           </span>
         ) : null}

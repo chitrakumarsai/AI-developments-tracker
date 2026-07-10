@@ -7,15 +7,46 @@
    =========================================================================== */
 
 :root {
-  /* Surfaces & ink */
-  --color-paper: oklch(99% 0.004 95);      /* page background — warm near-white */
+  /*
+   * Surfaces & ink — a cool neutral ramp (hue 260) rather than the old warm
+   * one. Every step is a deliberate rung: paper sits *under* surface, so cards
+   * read as raised without needing a heavy shadow.
+   */
+  --color-paper: oklch(98.5% 0.002 260);   /* page background — cool near-white */
   --color-surface: oklch(100% 0 0);        /* cards / raised surfaces */
-  --color-ink: oklch(22% 0.012 60);        /* primary text */
-  --color-muted: oklch(52% 0.012 60);      /* secondary text */
-  --color-faint: oklch(62% 0.01 60);       /* tertiary / timestamps — darkened for AA-ish contrast */
-  --color-rule: oklch(90% 0.005 80);       /* hairline rules / borders */
-  --color-accent: oklch(55% 0.205 25);     /* signal red — used sparingly */
-  --color-accent-ink: oklch(98% 0.01 25);  /* text on accent */
+  --color-sunken: oklch(96.5% 0.003 260);  /* wells: inputs, segmented tracks */
+  --color-ink: oklch(20% 0.01 260);        /* primary text */
+  --color-muted: oklch(50% 0.012 260);     /* secondary text — 7:1 on paper */
+  --color-faint: oklch(55% 0.012 260);     /* tertiary / timestamps — must clear 4.5:1 on paper, it renders small text */
+  --color-rule: oklch(91% 0.004 260);      /* hairline rules / borders */
+
+  /*
+   * Accent = deep indigo. Used for links, active state and focus — the things
+   * the reader can act on. Distinct from `danger` on purpose: red now means
+   * "destructive" (Delete) and nothing else, so it stops shouting on hover.
+   */
+  --color-accent: oklch(48% 0.16 265);
+  --color-accent-ink: oklch(99% 0.005 265); /* text on accent */
+  --color-accent-soft: oklch(96% 0.02 265); /* tinted wash behind active items */
+
+  /* Semantic, not decorative: destructive actions and error states only. */
+  --color-danger: oklch(55% 0.2 25);
+  --color-danger-ink: oklch(99% 0.01 25);
+
+  /*
+   * AI provenance. These mark the surfaces where a model actually did the work
+   * — the Ask tab (embeddings + gpt-4o-mini rerank), the Digest card, and the
+   * items a reranker chose. Nowhere else: feed titles and summaries come
+   * straight off the RSS feed, and `?q=` search is a SQL substring match, so
+   * glowing them would claim an intelligence that isn't there.
+   *
+   * Indigo→violet extends the accent rather than introducing a fourth hue.
+   */
+  --color-ai-from: oklch(48% 0.16 265);   /* == accent: the gradient starts in-palette */
+  --color-ai-to: oklch(58% 0.19 300);     /* violet */
+  --color-ai-soft: oklch(96% 0.025 285);  /* wash behind AI surfaces */
+  --color-ai-border: oklch(88% 0.06 290); /* hairline around AI surfaces */
+  --gradient-ai: linear-gradient(100deg, var(--color-ai-from), var(--color-ai-to));
 
   /* Type scale (fluid) */
   --text-xs: clamp(0.75rem, 0.72rem + 0.1vw, 0.8rem);
@@ -25,43 +56,81 @@
   --text-xl: clamp(1.4rem, 1.2rem + 0.8vw, 1.85rem);
   --text-display: clamp(2.2rem, 1.6rem + 2.6vw, 4rem);
 
-  /* Spacing rhythm */
+  /* Spacing rhythm — a scale, so padding stops being uniform everywhere. */
   --space-gutter: clamp(1rem, 0.7rem + 1.4vw, 2rem);
   --space-section: clamp(2.5rem, 1.8rem + 3vw, 5rem);
+  --space-card: clamp(1rem, 0.8rem + 0.6vw, 1.5rem);
 
-  /* Radius — minimal, Swiss */
-  --radius-sm: 2px;
-  --radius-md: 4px;
+  /* Radius — softened from the old 2px Swiss hairline. */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  /*
+   * Elevation — tinted with the neutral hue rather than pure black, so shadows
+   * sit in the palette instead of muddying it.
+   */
+  --shadow-card: 0 1px 2px oklch(20% 0.01 260 / 0.04), 0 1px 3px oklch(20% 0.01 260 / 0.06);
+  --shadow-raised: 0 2px 4px oklch(20% 0.01 260 / 0.04), 0 4px 12px oklch(20% 0.01 260 / 0.08);
+  --shadow-popover: 0 4px 8px oklch(20% 0.01 260 / 0.06), 0 12px 28px oklch(20% 0.01 260 / 0.12);
 
   /* Motion */
   --duration-fast: 140ms;
   --duration-normal: 260ms;
+  --duration-sweep: 900ms; /* one pass of the AI shimmer */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dark {
-  /* When the dark toggle lands, flip native controls to match the dark tokens. */
+  /* Dormant until a toggle ships (v5 kept light-only), but held in sync with
+     the light ramp above so enabling it is a small, self-contained slice. */
   color-scheme: dark;
-  --color-paper: oklch(16% 0.01 60);
-  --color-surface: oklch(20% 0.012 60);
-  --color-ink: oklch(95% 0.005 95);
-  --color-muted: oklch(72% 0.012 60);
-  --color-faint: oklch(58% 0.01 60);
-  --color-rule: oklch(30% 0.01 60);
-  --color-accent: oklch(64% 0.19 25);
-  --color-accent-ink: oklch(18% 0.02 25);
+  --color-paper: oklch(16% 0.008 260);
+  --color-surface: oklch(20% 0.01 260);
+  --color-sunken: oklch(23% 0.01 260);
+  --color-ink: oklch(96% 0.003 260);
+  --color-muted: oklch(74% 0.01 260);
+  --color-faint: oklch(60% 0.01 260);
+  --color-rule: oklch(30% 0.01 260);
+  --color-accent: oklch(72% 0.14 265);
+  --color-accent-ink: oklch(16% 0.02 265);
+  --color-accent-soft: oklch(28% 0.05 265);
+  --color-danger: oklch(66% 0.18 25);
+  --color-danger-ink: oklch(16% 0.02 25);
+  --color-ai-from: oklch(72% 0.14 265);
+  --color-ai-to: oklch(76% 0.16 300);
+  --color-ai-soft: oklch(28% 0.06 285);
+  --color-ai-border: oklch(38% 0.08 290);
+
+  --shadow-card: 0 1px 2px oklch(0% 0 0 / 0.3);
+  --shadow-raised: 0 2px 4px oklch(0% 0 0 / 0.3), 0 4px 12px oklch(0% 0 0 / 0.35);
+  --shadow-popover: 0 4px 8px oklch(0% 0 0 / 0.35), 0 12px 28px oklch(0% 0 0 / 0.45);
 }
 
 /* Map tokens to Tailwind utilities (bg-paper, text-ink, border-rule, …) */
 @theme inline {
   --color-paper: var(--color-paper);
   --color-surface: var(--color-surface);
+  --color-sunken: var(--color-sunken);
   --color-ink: var(--color-ink);
   --color-muted: var(--color-muted);
   --color-faint: var(--color-faint);
   --color-rule: var(--color-rule);
   --color-accent: var(--color-accent);
   --color-accent-ink: var(--color-accent-ink);
+  --color-accent-soft: var(--color-accent-soft);
+  --color-danger: var(--color-danger);
+  --color-danger-ink: var(--color-danger-ink);
+  --color-ai-from: var(--color-ai-from);
+  --color-ai-to: var(--color-ai-to);
+  --color-ai-soft: var(--color-ai-soft);
+  --color-ai-border: var(--color-ai-border);
+
+  /* `shadow-card`, `shadow-raised`, `shadow-popover` */
+  --shadow-card: var(--shadow-card);
+  --shadow-raised: var(--shadow-raised);
+  --shadow-popover: var(--shadow-popover);
 
   --font-sans: var(--font-inter);
   --font-display: var(--font-fraunces);
@@ -108,4 +177,87 @@ body {
 /* Suppress the mouse-focus outline where the browser would still draw one. */
 :focus:not(:focus-visible) {
   outline: none;
+}
+
+/* ===========================================================================
+   AI provenance treatment
+   Marks the surfaces where a model did the work. At rest it is a *static*
+   gradient — so the surface still reads as AI without anything moving. The
+   sweep runs once on hover/focus, and loops only while work is in flight
+   (`.ai-working`), where the motion is a genuine progress signal rather than
+   decoration.
+   =========================================================================== */
+
+/* Gradient wordmark, e.g. the "Ask" tab label. */
+.ai-text {
+  background-image: var(--gradient-ai);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/*
+ * A surface that can shimmer. The sweep is an overlay pseudo-element moved
+ * with `transform` only — never `background-position`, which repaints on every
+ * frame. `isolation` keeps the overlay from escaping rounded corners.
+ *
+ * It deliberately uses `::before`, NOT `::after`: Tailwind's `after:*`
+ * utilities target `::after`, and the feed's active-tab underline is exactly
+ * that. When both landed on one element the sweep's `background` shorthand
+ * erased the underline's colour, and the underline's `h-[2px]` squashed the
+ * sweep into a sliver. `::before` keeps the two from ever colliding.
+ */
+.ai-surface {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.ai-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    oklch(100% 0 0 / 0.5) 50%,
+    transparent 80%
+  );
+  transform: translateX(-120%);
+}
+
+/* One pass, on intent. */
+.ai-surface:hover::before,
+.ai-surface:focus-visible::before,
+.ai-surface:focus-within::before {
+  animation: ai-sweep var(--duration-sweep) var(--ease-out-expo);
+}
+
+/* Looping pass, only while a prompt-view is actually being generated. */
+.ai-working::before {
+  animation: ai-sweep 1.4s linear infinite;
+}
+
+@keyframes ai-sweep {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(120%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /*
+   * The global rule above clamps animation-duration to 0.01ms, which would turn
+   * the infinite `.ai-working` sweep into a strobe. Stop it outright instead —
+   * the static gradient still identifies the surface.
+   */
+  .ai-surface::before,
+  .ai-working::before {
+    animation: none !important;
+    opacity: 0;
+  }
 }
