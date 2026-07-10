@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://www.deloitte.com/uk/en/Industries/technology/blogs/riding-the-wave.html</loc>
+    <lastmod>2026-04-01T10:00:00Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.deloitte.com/uk/en/Industries/technology/blogs/2023/picture-this.html</loc>
+    <lastmod>2026-04-24T15:27:30Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.deloitte.com/uk/en/Industries/technology/blogs/older-post.html</loc>
+    <lastmod>2024-01-05T09:00:00Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.deloitte.com/uk/en/careers/search-jobs.html</loc>
+    <lastmod>2026-05-01T00:00:00Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.deloitte.com/uk/en/Industries/technology/blogs/no-lastmod.html</loc>
+  </url>
+  <url>
+    <loc>https://evil.example.net/uk/en/Industries/technology/blogs/offsite.html</loc>
+    <lastmod>2026-06-01T00:00:00Z</lastmod>
+  </url>
+</urlset>
