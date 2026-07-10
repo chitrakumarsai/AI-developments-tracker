@@ -83,3 +83,29 @@ from `web/` with the Node 20 PATH. Then drive the app and check the four fixes.
 
 - **GATE 1** — this plan approved before any implementation code.
 - **GATE 2** — diff + review presented before commit/push, per slice.
+
+---
+
+## Status
+
+- **Slice 1 — SHIPPED.** PR #22 (`feat/v5-slice-a-ux-fixes`), commits `70d9048` + `16c2ac7`.
+  All four asks landed, plus a searchable combobox source picker added mid-slice.
+  500 tests, clean tsc/eslint/build. Six bugs fixed en route — see the PR body.
+- **Slice 2 — NOT STARTED.** The design-system rebuild. This is the slice that
+  actually addresses "clumsy, not modern, colour scheme not appealing".
+
+### Carried into Slice 2
+
+- The combobox keyboard/focus state machine has no automated coverage (no jsdom
+  in this repo). Fix by extracting the key handler into a pure reducer, testable
+  the way `filterSources` / `pickerOptions` are.
+- Per the checkpoint: show the rebuilt palette for approval **before** applying it
+  across feed / sources / settings.
+- `.dark` tokens stay in sync with the new palette, but no toggle ships.
+
+### Environment gotcha
+
+A background sync/backup tool keeps recreating macOS `… 2.*` duplicate files. It
+has now polluted a commit once and broken `tsc` twice (via `.next/types/*.d 2.ts`).
+Symptom: `tsc` errors that all live under `.next/`. Fix: `rm -rf .next`. Never use
+`git add -A` here — stage explicit paths.
