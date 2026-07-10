@@ -19,8 +19,8 @@ export function Abstract({ text }: AbstractProps) {
       <p
         className={
           isExpanded
-            ? "text-sm leading-relaxed text-muted"
-            : "line-clamp-3 text-sm leading-relaxed text-muted"
+            ? "[overflow-wrap:anywhere] text-sm leading-relaxed text-muted"
+            : "line-clamp-3 [overflow-wrap:anywhere] text-sm leading-relaxed text-muted"
         }
       >
         {text}

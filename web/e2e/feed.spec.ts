@@ -1,12 +1,19 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * Feed E2E (mobile viewport). Requires the local Supabase stack running, the
- * migration applied, the seed loaded, and at least one ingest run completed
- * (POST /api/ingest/run) so `items` is populated.
+ * Feed E2E. Runs signed-in via the owner storage state (see auth.setup.ts).
+ * Requires the DB to hold at least one ingested item.
+ *
+ * The feed moved from `/` to `/feed` when `/` became the public landing (2.4),
+ * and the first card is no longer guaranteed to be arXiv now that many sources
+ * are ingested — so this asserts the link-first contract, not a specific host.
  */
-test("renders arXiv items on mobile and links to the source", async ({ page }) => {
-  await page.goto("/");
+test("renders items and links out to the source", async ({ page, browserName }) => {
+  // WebKit cannot hydrate here: the production CSP sends `upgrade-insecure-requests`
+  // and WebKit honours it on http://127.0.0.1, so script loads fail. Chromium
+  // exempts loopback. Real production is https, so this is harness-only.
+  const canInteract = browserName !== "webkit";
+  await page.goto("/feed");
 
   await expect(page.getByRole("heading", { level: 1 })).toContainText("AI Chronicles");
 
@@ -14,7 +21,7 @@ test("renders arXiv items on mobile and links to the source", async ({ page }) =
   await expect(firstItem).toBeVisible();
 
   const showMore = firstItem.getByRole("button", { name: /show more/i });
-  if (await showMore.count()) {
+  if (canInteract && (await showMore.count())) {
     await showMore.click();
     await expect(
       firstItem.getByRole("button", { name: /show less/i }),
@@ -22,6 +29,7 @@ test("renders arXiv items on mobile and links to the source", async ({ page }) =
   }
 
   const readLink = firstItem.getByRole("link", { name: /open .* at the source/i });
-  await expect(readLink).toHaveAttribute("href", /arxiv\.org/);
+  // Link-first (§7): the card links OUT to the original, never to an in-app copy.
+  await expect(readLink).toHaveAttribute("href", /^https?:\/\//);
   await expect(readLink).toHaveAttribute("rel", /noopener/);
 });

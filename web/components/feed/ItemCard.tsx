@@ -62,7 +62,7 @@ export function ItemCard({ item, context = {} }: ItemCardProps) {
   const metric = item.metric != null ? metricMeta(platform.slug, item.category) : null;
   const tags = item.tags?.slice(0, MAX_TAG_CHIPS) ?? [];
   return (
-    <article className="group flex h-full flex-col rounded-[var(--radius-lg)] border border-rule bg-surface p-[var(--space-card)] shadow-card transition-shadow duration-[var(--duration-fast)] hover:shadow-raised">
+    <article className="group flex h-full min-w-0 flex-col rounded-[var(--radius-lg)] border border-rule bg-surface p-[var(--space-card)] shadow-card transition-shadow duration-[var(--duration-fast)] hover:shadow-raised">
       <div className="flex items-center justify-between gap-3">
         <p className="flex min-w-0 items-center gap-2 text-xs">
           <Link
@@ -87,7 +87,7 @@ export function ItemCard({ item, context = {} }: ItemCardProps) {
         ) : null}
       </div>
 
-      <h2 className="mt-2 font-display text-lg leading-snug text-ink">
+      <h2 className="mt-2 [overflow-wrap:anywhere] font-display text-lg leading-snug text-ink">
         <OpenAtSourceLink
           itemId={item.id}
           url={item.url}
