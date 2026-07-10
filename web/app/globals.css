@@ -40,12 +40,13 @@
    * straight off the RSS feed, and `?q=` search is a SQL substring match, so
    * glowing them would claim an intelligence that isn't there.
    *
-   * Indigo→violet extends the accent rather than introducing a fourth hue.
+   * Blue→teal is lifted straight from the logo mark, so "this is AI" and the
+   * brand identity speak one visual language.
    */
-  --color-ai-from: oklch(48% 0.16 265);   /* == accent: the gradient starts in-palette */
-  --color-ai-to: oklch(58% 0.19 300);     /* violet */
-  --color-ai-soft: oklch(96% 0.025 285);  /* wash behind AI surfaces */
-  --color-ai-border: oklch(88% 0.06 290); /* hairline around AI surfaces */
+  --color-ai-from: oklch(60% 0.17 250);   /* brand blue */
+  --color-ai-to: oklch(72% 0.13 175);     /* brand teal */
+  --color-ai-soft: oklch(96% 0.022 205);  /* wash behind AI surfaces */
+  --color-ai-border: oklch(88% 0.05 205); /* hairline around AI surfaces */
   --gradient-ai: linear-gradient(100deg, var(--color-ai-from), var(--color-ai-to));
 
   /* Type scale (fluid) */
@@ -98,10 +99,10 @@
   --color-accent-soft: oklch(28% 0.05 265);
   --color-danger: oklch(66% 0.18 25);
   --color-danger-ink: oklch(16% 0.02 25);
-  --color-ai-from: oklch(72% 0.14 265);
-  --color-ai-to: oklch(76% 0.16 300);
-  --color-ai-soft: oklch(28% 0.06 285);
-  --color-ai-border: oklch(38% 0.08 290);
+  --color-ai-from: oklch(68% 0.15 250);
+  --color-ai-to: oklch(74% 0.12 175);
+  --color-ai-soft: oklch(28% 0.05 205);
+  --color-ai-border: oklch(40% 0.07 205);
 
   --shadow-card: 0 1px 2px oklch(0% 0 0 / 0.3);
   --shadow-raised: 0 2px 4px oklch(0% 0 0 / 0.3), 0 4px 12px oklch(0% 0 0 / 0.35);
