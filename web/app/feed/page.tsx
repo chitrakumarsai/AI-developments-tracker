@@ -14,11 +14,12 @@ import {
   type FeedWindow,
 } from "@/lib/feed/queries";
 import { FEED_STATES } from "@/lib/feed/types";
-import { CURATED_PLATFORMS, isCuratedPlatform } from "@/lib/feed/platform";
+import { CURATED_PLATFORMS, isKnownPlatform } from "@/lib/feed/platform";
 import { feedHref } from "@/lib/feed/filterHref";
 import { listViews, type SavedView } from "@/lib/views/persist";
 import type { SavedFilters } from "@/lib/views/href";
 import { SavedViewsBar } from "@/components/feed/SavedViewsBar";
+import { FilterGroup } from "@/components/feed/FilterGroup";
 import { SourcePicker } from "@/components/feed/SourcePicker";
 import { MyViews } from "@/components/feed/MyViews";
 import { WelcomeBanner } from "@/components/feed/WelcomeBanner";
@@ -83,7 +84,6 @@ export default async function Home({
     tag?: string;
     q?: string;
     state?: string;
-    view?: string;
     id?: string;
   }>;
 }) {
@@ -101,23 +101,24 @@ export default async function Home({
     tag: tagParam,
     q: qParam,
     state: stateParam,
-    view: viewParam,
     id: idParam,
   } = await searchParams;
   // Cap an incoming product id so a hostile URL can't bloat state (it's matched
   // against the user's rows anyway).
   const productId = idParam?.trim() ? idParam.trim().slice(0, 64) : undefined;
   const active = sectionForSlug(sectionParam);
-  // "My views" is a sub-view of the Products tab (v4 Slice B): the saved
-  // prompt-views surface, toggled alongside the normal content feed.
-  const isProductsTab = active.slug === "products";
-  const isMyViews = isProductsTab && viewParam === "mine";
+  // The Ask tab (v5) is a prompt surface, not a category feed: it renders the
+  // reader's saved natural-language views instead of a filtered item list, so
+  // the search box and filter controls below don't apply to it.
+  const isAsk = active.isPrompt === true;
 
   // Untrusted URL params: keep a non-empty source id; trim + length-cap the tag.
   const source = sourceParam?.trim() ? sourceParam.trim() : undefined;
-  // Only accept a known curated platform slug (guards against hostile URLs).
+  // Only accept a platform slug this app can resolve (guards against hostile
+  // URLs). Broader than the picker's chips: a platform that left the picker is
+  // still a valid deep link.
   const platform =
-    platformParam && isCuratedPlatform(platformParam) ? platformParam : undefined;
+    platformParam && isKnownPlatform(platformParam) ? platformParam : undefined;
   const tag = tagParam?.trim() ? tagParam.trim().slice(0, MAX_TAG_LENGTH) : undefined;
   const q = qParam?.trim() ? qParam.trim().slice(0, MAX_SEARCH_LENGTH) : undefined;
   const state: FeedState | undefined = STATE_KEYS.has(stateParam ?? "")
@@ -325,38 +326,7 @@ export default async function Home({
           </Suspense>
         ) : null}
         <section aria-label="Feed" className="flex flex-1 flex-col">
-          {isProductsTab ? (
-            <nav aria-label="Products view" className="mt-4 -mx-1 overflow-x-auto">
-              <ul className="flex gap-1 text-sm">
-                {[
-                  { key: "news", label: "In the news", href: feedHref({ section: "products" }) },
-                  {
-                    key: "mine",
-                    label: "My views",
-                    href: `${feedHref({ section: "products" })}&view=mine`,
-                  },
-                ].map((tab) => {
-                  const tabActive = tab.key === "mine" ? isMyViews : !isMyViews;
-                  return (
-                    <li key={tab.key}>
-                      <Link
-                        href={tab.href}
-                        aria-current={tabActive ? "true" : undefined}
-                        className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] px-3 font-medium transition-colors ${
-                          tabActive
-                            ? "bg-ink text-surface"
-                            : "text-muted hover:text-ink hover:bg-rule/40"
-                        }`}
-                      >
-                        {tab.label}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </nav>
-          ) : null}
-          {isMyViews ? (
+          {isAsk ? (
             <MyViews productId={productId} />
           ) : (
             <>
@@ -395,104 +365,76 @@ export default async function Home({
             current={currentFilters}
             hasActiveFilters={hasActiveFilters}
           />
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-4 text-xs">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <div className="flex items-center gap-1" aria-label="Time window">
-                <span className="mr-1 text-faint">Window</span>
-              {WINDOW_OPTIONS.map((option) => {
-                const isActive = window === option.key;
-                return (
-                  <Link
-                    key={option.key}
-                    href={feedHref({
-                      section: active.slug,
-                      sort,
-                      window: option.key,
-                      source,
-                      platform,
-                      tag,
-                      q,
-                      state,
-                    })}
-                    aria-current={isActive ? "true" : undefined}
-                    className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] px-2.5 font-medium transition-colors ${
-                      isActive
-                        ? "bg-ink text-surface"
-                        : "text-muted hover:text-ink hover:bg-rule/40"
-                    }`}
-                  >
-                    {option.label}
-                  </Link>
-                );
-              })}
-              </div>
+          {/*
+            The filter bar must NOT establish a scroll container: the source
+            picker's listbox is absolutely positioned, and `overflow-x: auto`
+            makes overflow-y compute to `auto` too (CSS Overflow §3), which
+            clips the popup away. So the groups wrap onto extra rows on narrow
+            screens instead of scrolling sideways.
+          */}
+          <div className="mt-4">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+              <FilterGroup
+                label="Window"
+                options={WINDOW_OPTIONS.map((option) => ({
+                  key: option.key,
+                  label: option.label,
+                  isActive: window === option.key,
+                  href: feedHref({
+                    section: active.slug,
+                    sort,
+                    window: option.key,
+                    source,
+                    platform,
+                    tag,
+                    q,
+                    state,
+                  }),
+                }))}
+              />
               <SourcePicker
                 sources={sourceOptions}
                 current={feedContext}
                 activeSource={source}
               />
-            </div>
-            <div className="flex items-center gap-1" aria-label="Sort order">
-              <span className="mr-1 text-faint">Sort</span>
-              {sortOptions.map((option) => {
-                const isActive = sort === option.key;
-                return (
-                  <Link
-                    key={option.key}
-                    href={feedHref({
-                      section: active.slug,
-                      sort: option.key,
-                      window,
-                      source,
-                      platform,
-                      tag,
-                      q,
-                      state,
-                    })}
-                    aria-current={isActive ? "true" : undefined}
-                    className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] px-2.5 font-medium transition-colors ${
-                      isActive
-                        ? "bg-ink text-surface"
-                        : "text-muted hover:text-ink hover:bg-rule/40"
-                    }`}
-                  >
-                    {option.label}
-                  </Link>
-                );
-              })}
+              <FilterGroup
+                label="Sort"
+                options={sortOptions.map((option) => ({
+                  key: option.key,
+                  label: option.label,
+                  isActive: sort === option.key,
+                  href: feedHref({
+                    section: active.slug,
+                    sort: option.key,
+                    window,
+                    source,
+                    platform,
+                    tag,
+                    q,
+                    state,
+                  }),
+                }))}
+              />
+              <FilterGroup
+                label="Show"
+                options={STATE_OPTIONS.map((option) => ({
+                  key: option.key ?? "all",
+                  label: option.label,
+                  isActive: state === option.key,
+                  href: feedHref({
+                    section: active.slug,
+                    sort,
+                    window,
+                    source,
+                    platform,
+                    tag,
+                    q,
+                    state: option.key ?? null,
+                  }),
+                }))}
+              />
             </div>
           </div>
-          <nav aria-label="Feedback filter" className="mt-3 -mx-1 overflow-x-auto">
-            <ul className="flex gap-1 text-xs">
-              {STATE_OPTIONS.map((option) => {
-                const isActive = state === option.key;
-                return (
-                  <li key={option.label}>
-                    <Link
-                      href={feedHref({
-                        section: active.slug,
-                        sort,
-                        window,
-                        source,
-                        platform,
-                        tag,
-                        q,
-                        state: option.key ?? null,
-                      })}
-                      aria-current={isActive ? "true" : undefined}
-                      className={`inline-flex min-h-[36px] items-center rounded-[var(--radius-sm)] px-2.5 font-medium transition-colors ${
-                        isActive
-                          ? "bg-ink text-surface"
-                          : "text-muted hover:text-ink hover:bg-rule/40"
-                      }`}
-                    >
-                      {option.label}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
           <Suspense
             key={`${active.slug}:${limit}:${sort}:${window}:${source ?? ""}:${platform ?? ""}:${tag ?? ""}:${q ?? ""}:${state ?? ""}`}
             fallback={<FeedFallback />}

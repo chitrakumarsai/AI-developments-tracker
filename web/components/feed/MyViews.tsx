@@ -8,12 +8,13 @@ import {
   type ProductSummary,
   type ProductWithItems,
 } from "@/lib/products/persist";
+import { ASK_SECTION_SLUG } from "@/lib/feed/categories";
 import { feedHref } from "@/lib/feed/filterHref";
 import { ItemCard } from "./ItemCard";
 import { CreateViewForm } from "./CreateViewForm";
 import { ViewActions } from "./ViewActions";
 
-const MY_VIEWS_BASE = `${feedHref({ section: "products" })}&view=mine`;
+const MY_VIEWS_BASE = feedHref({ section: ASK_SECTION_SLUG });
 
 function Notice({ title, body }: { title: string; body: string }) {
   return (
@@ -74,7 +75,13 @@ export async function MyViews({ productId }: { productId?: string }) {
           <ul className="grid grid-cols-1 gap-x-10 pt-4 lg:grid-cols-2 2xl:grid-cols-3">
             {product.items.map((item) => (
               <li key={item.id}>
-                <ItemCard item={item} context={{ section: "products" }} />
+                {/*
+                  No `context`: an item's source/tag links must resolve to the
+                  main feed, not back to Ask. Ask is a prompt surface and can't
+                  render a filtered item list, so `section=ask&source=…` would
+                  dead-end on this same page with the filter silently dropped.
+                */}
+                <ItemCard item={item} />
               </li>
             ))}
           </ul>
@@ -92,11 +99,15 @@ export async function MyViews({ productId }: { productId?: string }) {
   }
 
   return (
-    <section aria-label="My views" className="flex flex-1 flex-col pt-4">
+    <section aria-label="Ask" className="flex flex-1 flex-col pt-4">
       <div className="border-b border-rule pb-4">
-        <h2 className="font-display text-lg font-semibold text-ink">My views</h2>
-        <p className="mt-1 text-sm text-muted">
-          Describe what you want to track; we search your feed and save the matches.
+        <h2 className="font-display text-lg font-semibold text-ink">
+          Ask for what you want to track
+        </h2>
+        <p className="mt-1 max-w-xl text-sm leading-relaxed text-muted">
+          Describe a topic in plain English. We search everything you&rsquo;ve ingested —
+          papers, repos, models, posts — and save the matches as a view you can reopen
+          and refresh.
         </p>
         <div className="mt-3">
           <CreateViewForm />
@@ -108,7 +119,7 @@ export async function MyViews({ productId }: { productId?: string }) {
       ) : products.length === 0 ? (
         <Notice
           title="No saved views yet."
-          body="Create your first above — e.g. “vision transformers this month” — and reopen it here to see the matching papers, models, and posts."
+          body="Try something like “efficient inference on consumer GPUs” or “vision transformers this month”. Your view is saved here, so you can come back and refresh it as new items arrive."
         />
       ) : (
         <ul className="divide-y divide-rule">
