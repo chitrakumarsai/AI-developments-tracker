@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
 
+import { LogoMark } from "@/components/brand/Logo";
 import { TeaserList } from "@/components/landing/TeaserList";
 import { getTeaserItems, TEASER_LIMIT } from "@/lib/seo/teaser";
 import { createServerSupabaseClient } from "@/lib/supabase/ssr";
@@ -101,14 +102,21 @@ export default async function Landing() {
       <script
         type="application/ld+json"
         nonce={nonce}
+        // React strips `nonce` from the client DOM as a security measure, so the
+        // server (with nonce) and client (without) markup differ. This is a data
+        // block (not executed JS), so the mismatch is benign — suppress the warn.
+        suppressHydrationWarning
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
       <header className="border-b border-rule">
         <div className={`${CONTAINER} flex items-center justify-between py-6`}>
-          <p className="font-display text-lg font-semibold tracking-tight text-ink">
-            <span className="text-accent">✦</span> {SITE_NAME}
-          </p>
+          <div className="flex items-center gap-2.5">
+            <LogoMark size={32} className="shrink-0" />
+            <p className="font-display text-lg font-semibold tracking-tight text-ink">
+              {SITE_NAME}
+            </p>
+          </div>
           <Link
             href="/sign-in"
             className="text-xs uppercase tracking-[0.18em] text-muted transition-colors hover:text-ink"

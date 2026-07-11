@@ -1,9 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-import { PATCH } from "./route";
+import { DELETE, PATCH } from "./route";
 import { requireOwner } from "@/lib/auth/session";
 import { enforceRateLimit } from "@/lib/rate-limit/limiter";
 import {
+  deleteSource,
   setSourceStatus,
   setSourcePriority,
   updateSourceMeta,
@@ -12,6 +13,7 @@ import {
 vi.mock("@/lib/auth/session", () => ({ requireOwner: vi.fn() }));
 vi.mock("@/lib/rate-limit/limiter", () => ({ enforceRateLimit: vi.fn() }));
 vi.mock("@/lib/sources/persist", () => ({
+  deleteSource: vi.fn(),
   setSourceStatus: vi.fn(),
   setSourcePriority: vi.fn(),
   updateSourceMeta: vi.fn(),
@@ -38,7 +40,11 @@ beforeEach(() => {
   vi.mocked(setSourceStatus).mockResolvedValue(undefined);
   vi.mocked(setSourcePriority).mockResolvedValue(undefined);
   vi.mocked(updateSourceMeta).mockResolvedValue(undefined);
+  vi.mocked(deleteSource).mockResolvedValue(undefined);
 });
+
+const delReq = () =>
+  new Request("http://localhost/api/sources/x", { method: "DELETE" });
 
 describe("PATCH /api/sources/[id]", () => {
   it("returns 403 for a non-owner and never mutates", async () => {
@@ -132,5 +138,48 @@ describe("PATCH /api/sources/[id]", () => {
     asOwner();
     vi.mocked(setSourceStatus).mockRejectedValue(new Error("db down"));
     expect((await PATCH(req({ status: "archived" }), ctx(VALID_ID))).status).toBe(500);
+  });
+});
+
+describe("DELETE /api/sources/[id]", () => {
+  it("returns 403 for a non-owner and never deletes", async () => {
+    vi.mocked(requireOwner).mockResolvedValue({
+      ok: false,
+      status: 403,
+      error: "Owner access required.",
+    });
+    const res = await DELETE(delReq(), ctx(VALID_ID));
+    expect(res.status).toBe(403);
+    expect(deleteSource).not.toHaveBeenCalled();
+  });
+
+  it("passes the rate-limit response through when limited", async () => {
+    asOwner();
+    vi.mocked(enforceRateLimit).mockResolvedValue(
+      new Response("nope", { status: 429 }) as never,
+    );
+    const res = await DELETE(delReq(), ctx(VALID_ID));
+    expect(res.status).toBe(429);
+    expect(deleteSource).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for a non-uuid id and never deletes", async () => {
+    asOwner();
+    const res = await DELETE(delReq(), ctx("nope"));
+    expect(res.status).toBe(400);
+    expect(deleteSource).not.toHaveBeenCalled();
+  });
+
+  it("deletes the source for an owner", async () => {
+    asOwner();
+    const res = await DELETE(delReq(), ctx(VALID_ID));
+    expect(res.status).toBe(200);
+    expect(deleteSource).toHaveBeenCalledWith(VALID_ID);
+  });
+
+  it("returns 500 when the delete throws", async () => {
+    asOwner();
+    vi.mocked(deleteSource).mockRejectedValue(new Error("db down"));
+    expect((await DELETE(delReq(), ctx(VALID_ID))).status).toBe(500);
   });
 });

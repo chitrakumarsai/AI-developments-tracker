@@ -7,7 +7,7 @@ import { AddCandidateForm } from "@/components/sources/AddCandidateForm";
 import { ImportListForm } from "@/components/sources/ImportListForm";
 import { CandidateCard } from "@/components/sources/CandidateCard";
 import { AddSourceForm } from "@/components/sources/AddSourceForm";
-import { SourceCatalog } from "@/components/sources/SourceCatalog";
+import { SourceCatalogTabs } from "@/components/sources/SourceCatalogTabs";
 import { RunDiscoveryButton } from "@/components/sources/RunDiscoveryButton";
 import { requireSession } from "@/lib/auth/gate";
 
@@ -69,7 +69,7 @@ export default async function SourcesPage() {
               Could not reach the database. Make sure Supabase is configured.
             </p>
           ) : (
-            <SourceCatalog sources={sources} isOwner={isOwner} />
+            <SourceCatalogTabs sources={sources} isOwner={isOwner} />
           )}
         </section>
 

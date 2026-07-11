@@ -94,6 +94,29 @@ export async function setSourcePriority(
   }
 }
 
+/**
+ * Permanently delete a source from the catalog. Guarded to `archived` rows only:
+ * the `.eq("status", "archived")` filter is applied at the DB level, so an active
+ * or paused source can never be purged even under a race — the UI gate is not the
+ * only safety. Item rows reference the source, so callers must ensure the FK is
+ * `ON DELETE CASCADE`/`SET NULL` (it cascades in the schema); this is an
+ * irreversible hard delete, distinct from the soft `archived` state. Owner-gated
+ * at the route; injectable client for testing. Throws on DB error.
+ */
+export async function deleteSource(
+  id: string,
+  client: SupabaseClient = getServerClient(),
+): Promise<void> {
+  const { error } = await client
+    .from("sources")
+    .delete()
+    .eq("id", id)
+    .eq("status", "archived");
+  if (error) {
+    throw new Error(`Failed to delete source: ${error.message}`);
+  }
+}
+
 /** Editable catalog metadata (2.4.2). `url` is intentionally NOT editable here. */
 export type SourceMeta = {
   name: string;
@@ -153,12 +176,12 @@ export async function listSourceOptions(
 
 /**
  * The full catalog, each row annotated with its ingested-item count, ordered by
- * priority then recency, with archived sources partitioned to the bottom (they
- * recede but stay listed so the owner can restore them). Item counts are tallied
- * in memory from a single `source_id`-only scan of `items` — one round-trip, no
- * N+1 per-source counts. (At the current catalog size this is cheap; a grouped-
- * count RPC is the scale path if `items` grows large.) Injectable client for
- * testing. Throws on DB error.
+ * priority then recency. Status separation (active/paused/archived) is handled in
+ * the UI (tabbed catalog), so this returns rows in a single priority/recency order
+ * regardless of status. Item counts are tallied in memory from a single
+ * `source_id`-only scan of `items` — one round-trip, no N+1 per-source counts.
+ * (At the current catalog size this is cheap; a grouped-count RPC is the scale
+ * path if `items` grows large.) Injectable client for testing. Throws on DB error.
  */
 export async function listSourcesWithCounts(
   client: SupabaseClient = getServerClient(),
@@ -189,13 +212,8 @@ export async function listSourcesWithCounts(
     counts.set(row.source_id, (counts.get(row.source_id) ?? 0) + 1);
   }
 
-  const withCounts = sources.map((source) => ({
+  return sources.map((source) => ({
     ...source,
     itemCount: counts.get(source.id) ?? 0,
   }));
-
-  // Keep the DB priority/recency order but sink archived sources to the bottom.
-  const live = withCounts.filter((s) => s.status !== "archived");
-  const archived = withCounts.filter((s) => s.status === "archived");
-  return [...live, ...archived];
 }

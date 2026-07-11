@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
   createSource,
+  deleteSource,
   listSourceOptions,
   listSourcesWithCounts,
   setSourceStatus,
@@ -29,6 +30,39 @@ function makeUpdateClient(opts?: { errorOn?: "sources" }) {
               return Promise.resolve({ error: err });
             },
           };
+        },
+      };
+    },
+  } as unknown as SupabaseClient;
+
+  return { client, calls };
+}
+
+/**
+ * Fake client for the guarded delete: `.delete().eq("id",id).eq("status",…)`.
+ * Records the chained `.eq` filters so tests can assert the status guard is
+ * applied. `errorOn:"sources"` fails the delete.
+ */
+function makeDeleteClient(opts?: { errorOn?: "sources" }) {
+  const calls: Array<{ table: string; filters: Record<string, string> }> = [];
+  const err = opts?.errorOn === "sources" ? { message: "sources boom" } : null;
+
+  const client = {
+    from(table: string) {
+      return {
+        delete() {
+          const filters: Record<string, string> = {};
+          const chain = {
+            eq(col: string, val: string) {
+              filters[col] = val;
+              calls.push({ table, filters });
+              return chain;
+            },
+            then(resolve: (r: { error: unknown }) => void) {
+              return Promise.resolve({ error: err }).then(resolve);
+            },
+          };
+          return chain;
         },
       };
     },
@@ -201,7 +235,9 @@ describe("listSourcesWithCounts", () => {
     await expect(listSourcesWithCounts(client)).rejects.toThrow(/items boom/);
   });
 
-  it("sinks archived sources to the bottom, keeping live order", async () => {
+  it("preserves the DB priority/recency order regardless of status", async () => {
+    // Status separation is a UI concern (tabbed catalog); this layer keeps the
+    // order the query returns and does not reshuffle archived rows.
     const { client } = makeListClient({
       sources: [
         sourceRow("z", { status: "archived" }),
@@ -210,7 +246,7 @@ describe("listSourcesWithCounts", () => {
       ],
     });
     const rows = await listSourcesWithCounts(client);
-    expect(rows.map((r) => r.id)).toEqual(["a", "b", "z"]);
+    expect(rows.map((r) => r.id)).toEqual(["z", "a", "b"]);
   });
 });
 
@@ -226,6 +262,22 @@ describe("setSourceStatus", () => {
   it("throws on DB error", async () => {
     const { client } = makeUpdateClient({ errorOn: "sources" });
     await expect(setSourceStatus("s1", "archived", client)).rejects.toThrow(/sources boom/);
+  });
+});
+
+describe("deleteSource", () => {
+  it("deletes by id but only when the row is archived", async () => {
+    const { client, calls } = makeDeleteClient();
+    await deleteSource("s1", client);
+    expect(calls.at(-1)).toEqual({
+      table: "sources",
+      filters: { id: "s1", status: "archived" },
+    });
+  });
+
+  it("throws on DB error", async () => {
+    const { client } = makeDeleteClient({ errorOn: "sources" });
+    await expect(deleteSource("s1", client)).rejects.toThrow(/sources boom/);
   });
 });
 

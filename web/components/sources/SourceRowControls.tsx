@@ -39,6 +39,7 @@ export function SourceRowControls({ source }: SourceRowControlsProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [name, setName] = useState(source.name);
   const [category, setCategory] = useState(source.category);
   const [tags, setTags] = useState(source.tags.join(", "));
@@ -67,6 +68,23 @@ export function SourceRowControls({ source }: SourceRowControlsProps) {
     }
   }
 
+  async function remove() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/sources/${source.id}`, { method: "DELETE" });
+      const json = (await res.json()) as { success: boolean; error?: string };
+      if (!res.ok || !json.success) {
+        throw new Error(json.error ?? `Failed (${res.status})`);
+      }
+      // Row disappears on refresh; no local state to reset.
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Delete failed");
+      setBusy(false);
+    }
+  }
+
   function saveEdit(e: React.FormEvent) {
     e.preventDefault();
     void patch({
@@ -90,6 +108,38 @@ export function SourceRowControls({ source }: SourceRowControlsProps) {
         >
           Restore
         </button>
+
+        {confirmingDelete ? (
+          <span className="inline-flex items-center gap-2">
+            <span className="text-xs text-muted">Delete forever?</span>
+            <button
+              type="button"
+              onClick={remove}
+              disabled={busy}
+              className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-red-600 px-3 text-xs font-medium uppercase tracking-[0.14em] text-red-600 transition-colors hover:bg-red-600 hover:text-white disabled:opacity-50"
+            >
+              {busy ? "Deleting…" : "Confirm"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmingDelete(false)}
+              disabled={busy}
+              className={smallBtn}
+            >
+              Cancel
+            </button>
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirmingDelete(true)}
+            disabled={busy}
+            className="inline-flex min-h-[44px] items-center rounded-[var(--radius-sm)] border border-rule px-3 text-xs font-medium uppercase tracking-[0.14em] text-muted transition-colors hover:border-red-600 hover:text-red-600 disabled:opacity-50"
+          >
+            Delete…
+          </button>
+        )}
+
         {error ? (
           <span role="alert" className="text-xs text-red-600">
             {error}
