@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import {
+  deleteSource,
   setSourceStatus,
   setSourcePriority,
   updateSourceMeta,
@@ -83,6 +84,39 @@ export async function PATCH(
     const detail = error instanceof Error ? error.message : "Unknown error";
     console.error(`[sources] update failed: ${detail}`);
     const message = process.env.NODE_ENV === "production" ? "Could not update source." : detail;
+    return fail(500, message);
+  }
+}
+
+/**
+ * DELETE /api/sources/[id] — owner-only: permanently remove a source (2.4.3).
+ * This is an irreversible hard delete, distinct from the soft `archived` state.
+ * The persist layer guards the delete to `archived` rows only (`.eq("status",
+ * "archived")`), so an active/paused source can never be purged even if the UI
+ * gate is bypassed. Owner-gated + rate-limited, matching PATCH.
+ */
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const guard = await requireOwner();
+  if (!guard.ok) return fail(guard.status, guard.error);
+
+  const limited = await enforceRateLimit("candidates", `user:${guard.user.id}`);
+  if (limited) return limited;
+
+  const { id } = await params;
+  if (!z.string().uuid().safeParse(id).success) {
+    return fail(400, "Invalid source id.");
+  }
+
+  try {
+    await deleteSource(id);
+    return NextResponse.json({ success: true, data: null });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Unknown error";
+    console.error(`[sources] delete failed: ${detail}`);
+    const message = process.env.NODE_ENV === "production" ? "Could not delete source." : detail;
     return fail(500, message);
   }
 }
